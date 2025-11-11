@@ -2,11 +2,14 @@
   "$schema": "https://mintlify.com/docs.json",
   "name": "Pathfinder API",
   "description": "Intelligent LLM routing service with privacy-first design",
-  "theme": "mint",
+  "theme": "dark",
   "colors": {
     "primary": "#0066FF",
     "light": "#4D99FF",
-    "dark": "#0052CC"
+    "dark": "#0052CC",
+    "background": {
+      "dark": "#0A0E27"
+    }
   },
   "favicon": "/favicon.svg",
   "logo": {
