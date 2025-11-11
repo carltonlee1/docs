@@ -1,0 +1,150 @@
+---
+title: "Error Handling Guide"
+description: "Handle errors gracefully in production"
+---
+
+## Error Response Format
+
+All errors follow this structure:
+
+```json
+{
+  "error": {
+    "code": "rate_limit_exceeded",
+    "message": "Rate limit exceeded. Retry after 60 seconds",
+    "retry_after": 60
+  }
+}
+```
+
+See [Error Schemas](/docs/api/schemas/error-schemas) for complete reference.
+
+## Retry Logic
+
+### Python
+
+```python
+import time
+import requests
+
+def call_with_retry(prompt, max_retries=3):
+    for attempt in range(max_retries):
+        try:
+            response = requests.post(
+                "https://api.pathfinder.ai/v1/routes:decide",
+                headers={"Authorization": f"Bearer {API_KEY}"},
+                json={"prompt": prompt}
+            )
+
+            if response.status_code == 200:
+                return response.json()
+            elif response.status_code == 429:
+                # Rate limit
+                retry_after = response.json()["error"].get("retry_after", 60)
+                time.sleep(retry_after)
+            elif response.status_code >= 500:
+                # Server error - exponential backoff
+                time.sleep(2 ** attempt)
+            else:
+                response.raise_for_status()
+
+        except requests.exceptions.RequestException:
+            if attempt == max_retries - 1:
+                raise
+            time.sleep(2 ** attempt)
+```
+
+### Node.js
+
+```typescript
+async function callWithRetry(prompt: string, maxRetries: number = 3) {
+  for (let attempt = 0; attempt < maxRetries; attempt++) {
+    try {
+      const response = await fetch(
+        'https://api.pathfinder.ai/v1/routes:decide',
+        {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${API_KEY}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({ prompt })
+        }
+      );
+
+      if (response.ok) {
+        return response.json();
+      }
+
+      const error = await response.json();
+
+      if (response.status === 429) {
+        const retryAfter = error.error.retry_after || 60;
+        await sleep(retryAfter * 1000);
+        continue;
+      }
+
+      if (response.status >= 500) {
+        await sleep(Math.pow(2, attempt) * 1000);
+        continue;
+      }
+
+      throw new Error(error.error.message);
+
+    } catch (err) {
+      if (attempt === maxRetries - 1) throw err;
+      await sleep(Math.pow(2, attempt) * 1000);
+    }
+  }
+}
+```
+
+## Common Errors
+
+### 429 Rate Limit
+
+```python
+if response.status_code == 429:
+    error = response.json()
+    retry_after = error["error"].get("retry_after", 60)
+    print(f"Rate limited. Retry after {retry_after} seconds")
+    time.sleep(retry_after)
+```
+
+### 401 Unauthorized
+
+```python
+if response.status_code == 401:
+    print("Invalid API key. Check your credentials")
+    # Don't retry - fix the API key instead
+```
+
+### 500 Server Error
+
+```python
+if response.status_code >= 500:
+    print("Server error. Retrying with backoff")
+    time.sleep(2 ** attempt)  # Exponential backoff
+```
+
+## Fallback Strategies
+
+Use fallback models from the response:
+
+```python
+decision = get_routing_decision(prompt)
+
+# Try primary model
+try:
+    result = execute_with_provider(prompt, decision)
+except ProviderError:
+    # Try fallback
+    fallback = decision["fallback_options"][0]
+    result = execute_with_provider(prompt, fallback)
+```
+
+## Next Steps
+
+- [Error Schemas](/docs/api/schemas/error-schemas)
+- [Troubleshooting](/docs/api/support/troubleshooting)
+- [FAQ](/docs/api/support/faq)

@@ -1,0 +1,108 @@
+---
+title: "gRPC API Reference"
+description: "gRPC service documentation"
+---
+
+## Overview
+
+Pathfinder provides a gRPC API for high-performance routing decisions.
+
+## Service Definition
+
+```protobuf
+service RouterService {
+  rpc DecideRoute(DecideRouteRequest) returns (DecideRouteResponse);
+  rpc GetDecision(GetDecisionRequest) returns (GetDecisionResponse);
+}
+```
+
+## Connection
+
+```
+grpc.pathfinder.ai:443
+```
+
+## Authentication
+
+Use metadata for authentication:
+
+```python
+metadata = [('authorization', f'Bearer {API_KEY}')]
+```
+
+## Messages
+
+### DecideRouteRequest
+
+```protobuf
+message DecideRouteRequest {
+  string prompt = 1;
+  Constraints constraints = 2;
+  Context context = 3;
+}
+
+message Constraints {
+  optional float max_cost_usd = 1;
+  optional int32 max_latency_ms = 2;
+  repeated string required_capabilities = 3;
+}
+
+message Context {
+  optional string user_id = 1;
+  optional string session_id = 2;
+}
+```
+
+### DecideRouteResponse
+
+```protobuf
+message DecideRouteResponse {
+  string decision_id = 1;
+  string selected_model = 2;
+  string provider = 3;
+  float confidence = 4;
+  float estimated_cost_usd = 5;
+  int32 estimated_latency_ms = 6;
+  string reasoning = 7;
+  repeated FallbackOption fallback_options = 8;
+  PromptFeatures prompt_features = 9;
+  string created_at = 10;
+}
+```
+
+## Python Example
+
+```python
+import grpc
+from pathfinder.proto import router_pb2, router_pb2_grpc
+
+# Create channel
+channel = grpc.secure_channel(
+    'grpc.pathfinder.ai:443',
+    grpc.ssl_channel_credentials()
+)
+
+# Create stub
+stub = router_pb2_grpc.RouterServiceStub(channel)
+
+# Create metadata
+metadata = [('authorization', f'Bearer {API_KEY}')]
+
+# Make request
+request = router_pb2.DecideRouteRequest(
+    prompt="Write a Python function..."
+)
+
+response = stub.DecideRoute(request, metadata=metadata)
+print(f"Model: {response.selected_model}")
+```
+
+## Performance
+
+- Latency: ~50ms lower than REST API
+- Recommended for high-throughput applications (>1000 RPS)
+
+## Next Steps
+
+- [REST API](/docs/api/api-reference/rest-api)
+- [Python Integration](/docs/api/guides/python-integration)

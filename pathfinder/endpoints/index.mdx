@@ -1,0 +1,67 @@
+---
+title: "API Endpoints Overview"
+description: "Complete reference for Pathfinder's REST API endpoints"
+---
+
+## Available Endpoints
+
+Pathfinder provides a simple REST API for intelligent LLM routing.
+
+### Core Endpoints
+
+<CardGroup cols={2}>
+  <Card
+    title="POST /routes:decide"
+    icon="route"
+    href="/docs/api/endpoints/routing-decision"
+  >
+    Get a routing decision for your prompt
+  </Card>
+  <Card
+    title="GET /routes:decide/{id}"
+    icon="search"
+    href="/docs/api/endpoints/get-decision"
+  >
+    Retrieve a previous routing decision
+  </Card>
+</CardGroup>
+
+### Base URL
+
+All API requests should be made to:
+
+```
+https://api.pathfinder.ai/v1
+```
+
+### Authentication
+
+All endpoints require authentication via Bearer token:
+
+```bash
+Authorization: Bearer sk_live_your_api_key_here
+```
+
+See [Authentication Guide](/docs/api/getting-started/authentication) for details.
+
+### Rate Limits
+
+| Tier | Requests per minute |
+|------|---------------------|
+| Free | 60 |
+| Pro | 600 |
+| Enterprise | Custom |
+
+### Common Headers
+
+```http
+Content-Type: application/json
+Authorization: Bearer sk_live_...
+X-Tenant-ID: your-tenant-id (optional, extracted from token)
+```
+
+## Next Steps
+
+- [Routing Decision Endpoint](/docs/api/endpoints/routing-decision)
+- [Get Decision Endpoint](/docs/api/endpoints/get-decision)
+- [Error Handling](/docs/api/guides/error-handling)

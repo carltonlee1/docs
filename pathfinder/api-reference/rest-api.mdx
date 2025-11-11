@@ -1,0 +1,109 @@
+---
+title: "REST API Reference"
+description: "Complete REST API documentation"
+---
+
+## Base URL
+
+```
+https://api.pathfinder.ai/v1
+```
+
+## Authentication
+
+All requests require a Bearer token:
+
+```http
+Authorization: Bearer sk_live_your_api_key_here
+```
+
+Get your API key at: https://pathfinder.ai/dashboard/api-keys
+
+## Endpoints
+
+### Create Routing Decision
+
+```http
+POST /routes:decide
+```
+
+Analyzes your prompt and returns a routing decision.
+
+**Request Body**:
+```json
+{
+  "prompt": "string (required)",
+  "constraints": {
+    "max_cost_usd": "float (optional)",
+    "max_latency_ms": "integer (optional)",
+    "required_capabilities": ["string"] (optional)
+  },
+  "context": {
+    "user_id": "string (optional)",
+    "session_id": "string (optional)"
+  }
+}
+```
+
+**Response**: [Routing Decision Response](/docs/api/schemas/response-schemas)
+
+See [POST /routes:decide](/docs/api/endpoints/routing-decision) for details.
+
+### Get Routing Decision
+
+```http
+GET /routes:decide/{decision_id}
+```
+
+Retrieves a previous routing decision by ID.
+
+**Path Parameters**:
+- `decision_id` (string, required): UUID of the decision
+
+**Response**: [Routing Decision Response](/docs/api/schemas/response-schemas)
+
+See [GET /routes:decide/{id}](/docs/api/endpoints/get-decision) for details.
+
+## Rate Limits
+
+| Tier | Requests per minute |
+|------|---------------------|
+| Free | 60 |
+| Pro | 600 |
+| Enterprise | Custom |
+
+Rate limit headers included in all responses:
+```http
+X-RateLimit-Limit: 60
+X-RateLimit-Remaining: 59
+X-RateLimit-Reset: 1699999999
+```
+
+## Error Responses
+
+All errors follow this format:
+
+```json
+{
+  "error": {
+    "code": "string",
+    "message": "string",
+    "details": {} (optional)
+  }
+}
+```
+
+See [Error Schemas](/docs/api/schemas/error-schemas) for complete reference.
+
+## Versioning
+
+The API uses URL-based versioning:
+- Current: `/v1`
+- Deprecated versions supported for 12 months
+
+## Next Steps
+
+- [POST /routes:decide](/docs/api/endpoints/routing-decision)
+- [GET /routes:decide/{id}](/docs/api/endpoints/get-decision)
+- [Request Schemas](/docs/api/schemas/request-schemas)
+- [Response Schemas](/docs/api/schemas/response-schemas)

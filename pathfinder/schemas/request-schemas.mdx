@@ -1,0 +1,159 @@
+---
+title: "Request Schemas"
+description: "Complete reference for request data structures"
+---
+
+## Routing Decision Request
+
+### Schema
+
+```json
+{
+  "prompt": "string (required, max 100,000 chars)",
+  "constraints": {
+    "max_cost_usd": "float (optional)",
+    "max_latency_ms": "integer (optional)",
+    "required_capabilities": ["string"] (optional)
+  },
+  "context": {
+    "user_id": "string (optional)",
+    "session_id": "string (optional)",
+    "metadata": {} (optional)
+  }
+}
+```
+
+### Field Descriptions
+
+#### `prompt` (required)
+- **Type**: string
+- **Max length**: 100,000 characters
+- **Description**: The prompt to route
+- **Privacy**: Never stored in raw form, only SHA-256 hash
+
+#### `constraints` (optional)
+Optional constraints for routing decisions.
+
+##### `constraints.max_cost_usd` (optional)
+- **Type**: float
+- **Min**: 0.0
+- **Description**: Maximum acceptable cost in USD
+- **Example**: 0.05
+
+##### `constraints.max_latency_ms` (optional)
+- **Type**: integer
+- **Min**: 0
+- **Description**: Maximum acceptable latency in milliseconds
+- **Example**: 5000
+
+##### `constraints.required_capabilities` (optional)
+- **Type**: array of strings
+- **Description**: Required model capabilities
+- **Allowed values**:
+  - `text_generation`
+  - `code_generation`
+  - `reasoning`
+  - `instruction_following`
+  - `long_context`
+  - `multimodal`
+
+#### `context` (optional)
+Optional context for analytics and debugging.
+
+##### `context.user_id` (optional)
+- **Type**: string
+- **Max length**: 255
+- **Description**: Your internal user ID
+- **Use case**: Track routing patterns per user
+
+##### `context.session_id` (optional)
+- **Type**: string
+- **Max length**: 255
+- **Description**: Session or conversation ID
+- **Use case**: Group related routing decisions
+
+##### `context.metadata` (optional)
+- **Type**: object
+- **Max size**: 10 KB
+- **Description**: Arbitrary metadata for your use
+- **Use case**: Custom tracking fields
+
+### Examples
+
+#### Minimal Request
+
+```json
+{
+  "prompt": "Write a Python function that calculates fibonacci numbers"
+}
+```
+
+#### Request with Cost Constraint
+
+```json
+{
+  "prompt": "Explain quantum computing in simple terms",
+  "constraints": {
+    "max_cost_usd": 0.01
+  }
+}
+```
+
+#### Request with Latency Constraint
+
+```json
+{
+  "prompt": "Translate 'hello' to Spanish",
+  "constraints": {
+    "max_latency_ms": 1000
+  }
+}
+```
+
+#### Request with Capability Constraint
+
+```json
+{
+  "prompt": "Write a binary search algorithm in Rust",
+  "constraints": {
+    "required_capabilities": ["code_generation", "reasoning"]
+  }
+}
+```
+
+#### Request with Full Context
+
+```json
+{
+  "prompt": "Generate a product description",
+  "constraints": {
+    "max_cost_usd": 0.05,
+    "max_latency_ms": 3000
+  },
+  "context": {
+    "user_id": "user_123",
+    "session_id": "session_456",
+    "metadata": {
+      "product_id": "prod_789",
+      "category": "electronics"
+    }
+  }
+}
+```
+
+## Validation Rules
+
+| Field | Rule | Error Code |
+|-------|------|-----------|
+| `prompt` | Required | `missing_prompt` |
+| `prompt` | Max 100,000 chars | `prompt_too_long` |
+| `constraints.max_cost_usd` | Min 0.0 | `invalid_cost` |
+| `constraints.max_latency_ms` | Min 0 | `invalid_latency` |
+| `constraints.required_capabilities` | Valid capability | `invalid_capability` |
+| `context.metadata` | Max 10 KB | `metadata_too_large` |
+
+## Next Steps
+
+- [Response Schemas](/docs/api/schemas/response-schemas)
+- [Error Schemas](/docs/api/schemas/error-schemas)
+- [API Endpoints](/docs/api/endpoints/index)

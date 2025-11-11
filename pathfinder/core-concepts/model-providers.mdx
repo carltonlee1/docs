@@ -1,0 +1,171 @@
+---
+title: "Model Providers"
+description: "Supported LLM providers and models"
+---
+
+## Supported Providers
+
+Pathfinder supports all major LLM providers:
+
+<CardGroup cols={3}>
+  <Card title="OpenAI" icon="openai">
+    GPT-4 Turbo, GPT-4, GPT-3.5
+  </Card>
+  <Card title="Anthropic" icon="anthropic">
+    Claude 3 Opus, Sonnet, Haiku
+  </Card>
+  <Card title="Google" icon="google">
+    Gemini Pro, Gemini Ultra
+  </Card>
+  <Card title="Meta" icon="meta">
+    Llama 3 70B, 8B
+  </Card>
+  <Card title="Mistral" icon="mistral">
+    Mistral Large, Medium, Small
+  </Card>
+  <Card title="Cohere" icon="cohere">
+    Command R+, Command R
+  </Card>
+</CardGroup>
+
+## How Provider Selection Works
+
+Pathfinder uses a multi-factor decision process:
+
+1. **Capability matching**: Does the model support the required capabilities?
+2. **Cost optimization**: Which model provides the best value?
+3. **Latency requirements**: Which provider meets your latency SLA?
+4. **Provider health**: Is the provider currently available?
+5. **Historical performance**: Which models have worked well for similar prompts?
+
+## Provider Comparison
+
+| Provider | Strengths | Use Cases |
+|----------|-----------|-----------|
+| **OpenAI** | Best general-purpose models | Chat, code generation, creative writing |
+| **Anthropic** | Long context, safety | Document analysis, research, compliance |
+| **Google** | Multimodal, fast | Image analysis, video, low-latency apps |
+| **Meta** | Open-source, cost-effective | High-volume, cost-sensitive workloads |
+| **Mistral** | European, multilingual | EU data residency, non-English languages |
+| **Cohere** | Enterprise RAG | Search, embeddings, retrieval |
+
+## Model Capabilities
+
+Pathfinder tracks capabilities for each model:
+
+```json
+{
+  "model": "gpt-4-turbo-preview",
+  "capabilities": [
+    "text_generation",
+    "code_generation",
+    "reasoning",
+    "instruction_following",
+    "long_context"
+  ],
+  "max_tokens": 128000,
+  "languages": ["en", "es", "fr", "de", "..."],
+  "modalities": ["text"]
+}
+```
+
+You can filter by capabilities:
+
+```python
+response = await pathfinder.routes.decide(
+    prompt="Write a Python function...",
+    constraints={
+        "required_capabilities": ["code_generation", "reasoning"]
+    }
+)
+```
+
+## Provider Failover
+
+If your preferred provider is unavailable, Pathfinder automatically fails over:
+
+```json
+{
+  "selected_model": "gpt-4-turbo-preview",
+  "provider": "openai",
+  "fallback_options": [
+    {
+      "model": "claude-3-opus-20240229",
+      "provider": "anthropic",
+      "confidence": 0.92
+    },
+    {
+      "model": "gemini-1.5-pro",
+      "provider": "google",
+      "confidence": 0.88
+    }
+  ]
+}
+```
+
+## Provider Credentials
+
+**Important**: You execute completions with the provider directly. You need your own API keys for each provider.
+
+Pathfinder does NOT:
+- Execute completions for you
+- Store your provider API keys
+- Act as a proxy to providers
+
+Pathfinder DOES:
+- Recommend which model/provider to use
+- Provide fallback options
+- Track provider availability
+
+## Cost Comparison
+
+Pathfinder tracks real-time pricing for all models:
+
+| Model | Provider | Cost per 1M input tokens | Cost per 1M output tokens |
+|-------|----------|-------------------------|--------------------------|
+| GPT-4 Turbo | OpenAI | $10 | $30 |
+| Claude 3 Opus | Anthropic | $15 | $75 |
+| Claude 3 Sonnet | Anthropic | $3 | $15 |
+| Gemini 1.5 Pro | Google | $7 | $21 |
+| Llama 3 70B | Together | $0.90 | $0.90 |
+
+*Prices as of November 2025. See [Models List](/docs/api/api-reference/models-list) for current pricing.*
+
+## Provider Status
+
+Check real-time provider status:
+
+- Dashboard: https://pathfinder.ai/status
+- API: `GET /providers/status`
+
+Example response:
+```json
+{
+  "providers": [
+    {
+      "name": "openai",
+      "status": "operational",
+      "latency_p95_ms": 850,
+      "success_rate": 0.998
+    },
+    {
+      "name": "anthropic",
+      "status": "operational",
+      "latency_p95_ms": 1200,
+      "success_rate": 0.995
+    }
+  ]
+}
+```
+
+## Adding New Providers
+
+Request new provider support:
+- Email: [support@pathfinder.ai](mailto:support@pathfinder.ai)
+- GitHub: [Submit an issue](https://github.com/naivana-internal/pathfinder/issues)
+
+## Next Steps
+
+- [View all models](/docs/api/api-reference/models-list)
+- [Cost optimization guide](/docs/api/guides/cost-optimization)
+- [Routing decisions](/docs/api/core-concepts/routing-decisions)

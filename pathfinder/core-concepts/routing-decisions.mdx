@@ -1,0 +1,429 @@
+---
+title: "Understanding Routing Decisions"
+description: "How Pathfinder analyzes prompts and selects optimal models"
+---
+
+## How Routing Works
+
+When you send a prompt to Pathfinder, it doesn't randomly pick a model. Instead, it analyzes your prompt and makes an intelligent decision based on several factors.
+
+### The Routing Pipeline
+
+```
+Your Prompt
+    ↓
+1. Feature Extraction
+    ├─ Length
+    ├─ Complexity
+    ├─ Language requirements
+    ├─ Code detection
+    └─ Reasoning requirements
+    ↓
+2. Constraint Filtering
+    ├─ Max cost budget
+    ├─ Provider preferences
+    └─ Capability requirements
+    ↓
+3. Policy Evaluation
+    ├─ Cost Optimized
+    ├─ Quality First
+    └─ Latency Optimized
+    ↓
+4. Heuristic Rules
+    ├─ Code detection → GPT-4
+    ├─ Math problems → Claude
+    ├─ Simple queries → Fast models
+    └─ Creative tasks → Premium models
+    ↓
+Routing Decision
+    ├─ Selected Model: gpt-4-turbo
+    ├─ Provider: openai
+    ├─ Confidence: 0.95
+    └─ Reasoning: "GPT-4 optimal for code analysis"
+```
+
+## Feature Extraction
+
+Pathfinder analyzes your prompt without storing it:
+
+### Text Features
+
+| Feature | What It Means | Impact |
+|---------|---------------|--------|
+| **Length** | Number of characters | Longer prompts might need better models |
+| **Estimated Tokens** | Rough token count | Cost estimation |
+| **Language** | Detected language (en, es, etc.) | Model selection for multi-lingual queries |
+
+### Capability Requirements
+
+| Requirement | When It's Detected | Models Used |
+|------------|-------------------|------------|
+| **Requires Code** | Prompt asks for code or includes code | GPT-4, Claude for best quality |
+| **Requires Reasoning** | Math, logic, analysis | Reasoning-capable models |
+| **Requires Creative** | Writing, brainstorming, storytelling | Creative-optimized models |
+| **Requires Multimodal** | Asks to process images, video, etc. | Vision-capable models only |
+
+### Example: Feature Detection
+
+```python
+Prompt: "Write a Python function to detect palindromes"
+
+Detected Features:
+  - length: 54 characters
+  - estimated_tokens: 12
+  - language: "en" (English)
+  - requires_code: True       ← Will route to coding-capable model
+  - requires_reasoning: False
+  - requires_creative: False
+  - requires_multimodal: False
+
+Complexity Score: 0.65 (moderate - coding but simple algorithm)
+```
+
+## Routing Policies
+
+You can ask Pathfinder to optimize for different goals:
+
+### 1. Cost Optimized (Default)
+
+**Goal**: Minimize cost while maintaining acceptable quality
+
+**Strategy**:
+- Route simple queries to fast, cheap models (GPT-4o Mini, Claude Haiku)
+- Route complex queries to premium models only when necessary
+- Avoid expensive models for routine tasks
+
+**When to use**: SaaS applications, chatbots, high-volume queries
+
+**Example Decision**:
+```json
+{
+  "prompt": "What's 2+2?",
+  "policy": "cost_optimized",
+  "selected_model": "gpt-4-mini",
+  "estimated_cost_usd": 0.00001,
+  "reasoning": "Simple arithmetic - fast cheap model sufficient"
+}
+```
+
+### 2. Quality First
+
+**Goal**: Get the best possible output, cost is secondary
+
+**Strategy**:
+- Always route to premium models (GPT-4, Claude 3 Opus)
+- Use fallback to equally capable models
+- Ignore cost constraints
+
+**When to use**: Critical analysis, content creation, decision-making
+
+**Example Decision**:
+```json
+{
+  "prompt": "Analyze this company's business strategy...",
+  "policy": "quality_first",
+  "selected_model": "claude-3-opus-20240229",
+  "estimated_cost_usd": 0.05,
+  "reasoning": "Complex strategic analysis requires best-in-class model"
+}
+```
+
+### 3. Latency Optimized
+
+**Goal**: Get response as fast as possible
+
+**Strategy**:
+- Route to fastest models (Haiku, Flash, 4o Mini)
+- Prioritize speed over quality or cost
+- Perfect for real-time applications
+
+**When to use**: Real-time chat, streaming, interactive applications
+
+**Example Decision**:
+```json
+{
+  "prompt": "Generate a greeting message",
+  "policy": "latency_optimized",
+  "selected_model": "claude-3-haiku-20240307",
+  "estimated_cost_usd": 0.000005,
+  "routing_latency_ms": 0.8,
+  "reasoning": "Simple greeting - fastest model selected for lowest latency"
+}
+```
+
+### 4. Custom Policies (Coming Soon)
+
+Define your own optimization criteria:
+```json
+{
+  "policy": "custom",
+  "criteria": {
+    "max_cost_usd": 0.01,
+    "min_quality": 0.8,
+    "max_latency_ms": 100
+  }
+}
+```
+
+## Constraints: Fine-Tuning Decisions
+
+Constraints let you add rules to routing decisions:
+
+### Provider Constraints
+
+```json
+{
+  "prompt": "...",
+  "constraints": ["only-openai"]
+}
+```
+
+**Available constraints:**
+- `only-openai` - Route only to OpenAI models
+- `only-anthropic` - Route only to Anthropic (Claude)
+- `only-google` - Route only to Google (Gemini)
+- `no-openai` - Exclude OpenAI
+- `no-anthropic` - Exclude Anthropic
+- `no-google` - Exclude Google
+
+### Capability Constraints
+
+```json
+{
+  "prompt": "Describe this image: [image]",
+  "constraints": ["multimodal-only"]
+}
+```
+
+**Available constraints:**
+- `multimodal-only` - Only models with vision capabilities
+- `streaming-required` - Only models that support streaming
+- `function-calling-only` - Only models with function calling
+
+### Cost Constraints
+
+```json
+{
+  "prompt": "...",
+  "max_cost_usd": 0.01
+}
+```
+
+This limits Pathfinder to models estimated to cost ≤ $0.01.
+
+## Routing Methods
+
+Pathfinder uses different strategies internally:
+
+### Method 1: Heuristic Rules (Fastest)
+
+Fast pattern matching based on prompt content.
+
+**Examples:**
+- Prompt contains "python code" → Route to GPT-4
+- Prompt asks for "creative writing" → Route to Claude
+- Prompt is very simple → Route to Haiku/Mini
+
+**Advantages:**
+- ⚡ Sub-2ms latency
+- 📊 Predictable
+- 📚 Explainable rules
+
+**Disadvantages:**
+- Might miss edge cases
+- Less flexible than ML
+
+### Method 2: ML Model (Balanced)
+
+Machine learning model trained on billions of prompt-decision pairs.
+
+**Advantages:**
+- 🎯 More accurate than heuristics
+- 🔄 Learns from new patterns
+- 📈 Continuously improving
+
+**Disadvantages:**
+- ⏱️ Slightly slower (5-20ms)
+- 🔮 Less explainable
+
+### Method 3: Policy Router (Most Flexible)
+
+Rule-based system with explicit policies.
+
+**Advantages:**
+- 🎮 Full control over decisions
+- 📋 Easy to audit
+- 🔧 Easy to customize
+
+**Disadvantages:**
+- ⏱️ Slower for complex rules (20-100ms)
+- 🛠️ Requires manual tuning
+
+## Response Structure
+
+Every routing decision response includes:
+
+```json
+{
+  "decision_id": "550e8400-e29b-41d4-a716-446655440000",
+
+  // What was selected
+  "selected_model": "gpt-4-turbo-preview",
+  "provider": "openai",
+
+  // Decision quality metrics
+  "confidence": 0.95,
+  "routing_latency_ms": 1.8,
+  "routing_method": "heuristic",
+
+  // Cost estimation
+  "estimated_cost_usd": 0.015,
+
+  // Alternatives
+  "fallback_models": ["gpt-4", "claude-3-opus-20240229"],
+
+  // Explanation
+  "reasoning": "GPT-4 Turbo selected for optimal cost/quality balance on coding task",
+
+  // Metadata (if heuristic matched)
+  "heuristic_rule_name": "python_code_requests",
+  "heuristic_pattern_type": "keyword",
+
+  // Timestamp
+  "timestamp": "2025-11-11T14:30:00Z"
+}
+```
+
+## Understanding Confidence Scores
+
+The `confidence` field (0.0-1.0) indicates how sure Pathfinder is about the decision:
+
+| Score | Meaning | What to Do |
+|-------|---------|-----------|
+| 0.9-1.0 | Very confident | Trust the recommendation |
+| 0.7-0.9 | Confident | Use the recommendation |
+| 0.5-0.7 | Uncertain | Consider fallback models |
+| 0.0-0.5 | Low confidence | Multiple good options, choose your preference |
+
+**Example - Uncertain Decision:**
+```json
+{
+  "selected_model": "gpt-4",
+  "confidence": 0.55,
+  "fallback_models": ["claude-3-opus-20240229", "gemini-2.5-pro"],
+  "reasoning": "Multiple models equally suitable. GPT-4 chosen arbitrarily"
+}
+```
+
+In this case, you could safely pick any of the fallback models.
+
+## Cost Estimation
+
+The `estimated_cost_usd` is based on:
+
+1. **Model's published pricing**
+2. **Estimated tokens** from prompt analysis
+3. **Response overhead** assumptions
+
+**Important**: This is an estimate, not a guarantee. Actual cost depends on:
+- Exact number of output tokens (unknown before generation)
+- Current provider pricing (prices change)
+- Any additional API calls
+
+**Example Cost Calculation:**
+```
+Prompt: "Write a 500-word essay about climate change"
+Estimated input tokens: 15
+Estimated output tokens: 600  (assumed)
+
+GPT-4 Turbo:
+  Input: 15 tokens × $0.01/1M tokens = $0.00015
+  Output: 600 tokens × $0.03/1M tokens = $0.000018
+  Total: $0.000168 ≈ $0.00017
+```
+
+## Fallback Models
+
+The `fallback_models` array lists alternatives in priority order:
+
+**When to use fallback models:**
+
+1. **Primary provider is down**
+   ```python
+   try:
+       # Try primary model
+       response = openai_client.chat.completions.create(
+           model=decision['selected_model']
+       )
+   except Exception:
+       # Use fallback
+       response = anthropic_client.messages.create(
+           model=decision['fallback_models'][0]
+       )
+   ```
+
+2. **Rate limited on primary provider**
+   ```python
+   if response.status_code == 429:  # Rate limited
+       fallback_model = decision['fallback_models'][0]
+       response = use_fallback_provider(fallback_model)
+   ```
+
+3. **Cost exceeding budget**
+   ```python
+   if decision['estimated_cost_usd'] > budget:
+       cheaper_fallback = decision['fallback_models'][1]
+       response = use_fallback_provider(cheaper_fallback)
+   ```
+
+## Real-World Example
+
+Here's how all these pieces fit together:
+
+```python
+import requests
+
+# 1. Send prompt to Pathfinder
+response = requests.post(
+    'https://api.pathfinder.ai/v1/routes:decide',
+    headers={'Authorization': 'Bearer sk_live_...'},
+    json={
+        'prompt': 'Write a Python function to merge sorted arrays',
+        'policy_name': 'quality_first',
+        'constraints': ['only-openai', 'streaming-required'],
+        'max_cost_usd': 0.50
+    }
+)
+
+decision = response.json()
+
+# 2. Interpret the decision
+print(f"Provider: {decision['provider']}")
+print(f"Model: {decision['selected_model']}")
+print(f"Confidence: {decision['confidence']:.0%}")
+print(f"Cost Estimate: ${decision['estimated_cost_usd']:.5f}")
+print(f"Why: {decision['reasoning']}")
+
+# 3. Use the decision
+if decision['provider'] == 'openai':
+    from openai import OpenAI
+    client = OpenAI()
+    response = client.chat.completions.create(
+        model=decision['selected_model'],
+        messages=[{'role': 'user', 'content': 'Write a Python function...'}]
+    )
+    print(response.choices[0].message.content)
+
+# 4. Handle failures with fallback
+except Exception as e:
+    print(f"Primary model failed: {e}")
+    fallback_model = decision['fallback_models'][0]
+    print(f"Trying fallback: {fallback_model}")
+    # ... use fallback
+```
+
+## Next Steps
+
+- [Learn about Privacy & Security](/docs/api/core-concepts/privacy-first-design)
+- [Explore available models](/docs/api/api-reference/models-list)
+- [See routing decision API](/docs/api/endpoints/routing-decision)

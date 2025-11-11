@@ -1,0 +1,144 @@
+---
+title: "Introduction to Pathfinder"
+description: "Intelligent LLM routing service with privacy-first design"
+---
+
+## Welcome to Pathfinder
+
+Pathfinder is an intelligent API that routes prompts to the optimal language model based on cost, capability, and performance.
+
+Instead of choosing a model yourself, you send Pathfinder your prompt and it automatically recommends the best model and provider for your use case.
+
+### Key Benefits
+
+- **Cost Optimization**: Save up to 70% on API costs by routing to cheaper models without sacrificing quality
+- **Automatic Failover**: If your preferred provider is down, Pathfinder routes to a backup automatically
+- **Privacy First**: Your raw prompts are never stored—only anonymized hashes and features
+- **Multi-Tenant**: Complete isolation between organizations with row-level security
+- **Real-Time Insights**: Track which models work best for your use cases
+
+### How It Works
+
+```
+1. You send a prompt → 2. Pathfinder analyzes it → 3. Returns best model/provider → 4. You execute with that provider
+```
+
+**Important**: Pathfinder decides which model to use, but you execute the actual completion with that provider's API.
+
+### What You Get Back
+
+A routing decision that includes:
+- **Selected Model**: Which model to use (e.g., `gpt-4-turbo`)
+- **Provider**: Which company to call (e.g., `openai`)
+- **Confidence**: How confident we are (0.0-1.0)
+- **Estimated Cost**: How much this will cost
+- **Fallback Options**: Alternative models if primary fails
+- **Reasoning**: Why we picked this model
+
+### Common Use Cases
+
+| Use Case | What Pathfinder Does |
+|----------|---------------------|
+| **Cost-sensitive app** | Routes to cheaper models while maintaining quality |
+| **High-reliability system** | Provides fallback models if primary provider fails |
+| **Multi-user SaaS** | Optimizes cost per user while maintaining user experience |
+| **Research/Benchmarking** | Helps identify which models work best for different tasks |
+
+### A 5-Minute Example
+
+```bash
+# 1. Send your prompt to Pathfinder
+curl -X POST https://api.pathfinder.ai/v1/routes:decide \
+  -H "Authorization: Bearer sk_live_abc123..." \
+  -H "Content-Type: application/json" \
+  -d '{
+    "prompt": "Write a Python function to..."
+  }'
+
+# 2. Get back routing decision
+{
+  "decision_id": "550e8400-e29b-41d4-a716-446655440000",
+  "selected_model": "gpt-4-turbo-preview",
+  "provider": "openai",
+  "confidence": 0.95,
+  "estimated_cost_usd": 0.015,
+  "reasoning": "GPT-4 Turbo selected for coding task"
+}
+
+# 3. Use the decision to call OpenAI
+# (Use openai-python SDK or similar with the model above)
+```
+
+### Privacy & Security
+
+Pathfinder is built on privacy-first principles:
+
+- ✅ **Raw prompts never stored** - Only SHA-256 hashes
+- ✅ **Feature extraction only** - We analyze length, complexity, language
+- ✅ **Tenant isolation** - Your data is completely isolated from other users
+- ✅ **No third-party sharing** - We don't share your data with model providers
+- ✅ **Audit logging** - All decisions logged for your compliance needs
+
+Learn more in [Privacy & Security](/docs/api/core-concepts/privacy-first-design).
+
+## Getting Started
+
+Pick your experience level:
+
+<CardGroup cols={2}>
+  <Card
+    title="I have 5 minutes"
+    icon="rocket"
+    href="/docs/api/getting-started/quickstart"
+  >
+    Get your first routing decision in minutes
+  </Card>
+  <Card
+    title="I'm building a production app"
+    icon="gear"
+    href="/docs/api/getting-started/authentication"
+  >
+    Set up auth, error handling, and best practices
+  </Card>
+  <Card
+    title="Show me code"
+    icon="code"
+    href="/docs/api/guides/python-integration"
+  >
+    Python, Node.js, and cURL examples
+  </Card>
+  <Card
+    title="Understand the concepts"
+    icon="lightbulb"
+    href="/docs/api/core-concepts/routing-decisions"
+  >
+    Learn how routing decisions work
+  </Card>
+</CardGroup>
+
+## FAQ
+
+**How is this different from OpenRouter?**
+OpenRouter lets you choose between models. Pathfinder automatically chooses for you based on your constraints and policies, optimizing for cost/quality/latency.
+
+**Can I override Pathfinder's decision?**
+Yes! The routing decision is a recommendation. You can always choose a different model. See [Manual Override Guide](/docs/api/guides/manual-overrides).
+
+**What about my data privacy?**
+Your raw prompts are never stored. Only anonymized hashes and extracted features. See our [Privacy Policy](https://pathfinder.ai/privacy).
+
+**Do you support all models?**
+We support all major models from OpenAI, Anthropic, Google, and others. See [Available Models](/docs/api/api-reference/models-list).
+
+## Next Steps
+
+1. [Get your API key](/docs/api/getting-started/setup-credentials)
+2. [Make your first routing decision](/docs/api/getting-started/quickstart)
+3. [Integrate into your application](/docs/api/guides/python-integration)
+
+## Need Help?
+
+- 📖 Check the [FAQ](/docs/api/support/faq)
+- 🆘 See [Troubleshooting Guide](/docs/api/support/troubleshooting)
+- 💬 [Contact Support](mailto:support@pathfinder.ai)
+- 🐛 Report issues on [GitHub](https://github.com/naivana-internal/pathfinder/issues)

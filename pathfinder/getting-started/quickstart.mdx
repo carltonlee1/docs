@@ -1,0 +1,238 @@
+---
+title: "Quickstart - 5 Minutes to First API Call"
+description: "Get your first routing decision in 5 minutes"
+---
+
+## Quickstart
+
+Let's make your first routing decision in less than 5 minutes.
+
+### Prerequisites
+
+You need:
+- An API key (get one [here](https://dashboard.pathfinder.ai/api-keys))
+- A tool to make HTTP requests (cURL, Postman, or your favorite language)
+
+### Step 1: Get Your API Key
+
+1. Go to [dashboard.pathfinder.ai](https://dashboard.pathfinder.ai)
+2. Navigate to **API Keys**
+3. Click **Create New Key**
+4. Copy the key (starts with `sk_live_`)
+
+<Warning>
+Keep your API key secret! Never commit it to Git or share it publicly.
+</Warning>
+
+### Step 2: Make Your First Request
+
+Choose your preferred method:
+
+<Tabs>
+  <Tab title="cURL">
+    ```bash
+    curl -X POST https://api.pathfinder.ai/v1/routes:decide \
+      -H "Authorization: Bearer sk_live_YOUR_API_KEY" \
+      -H "Content-Type: application/json" \
+      -d '{
+        "prompt": "Write a Python function that checks if a number is prime"
+      }'
+    ```
+  </Tab>
+
+  <Tab title="Python">
+    ```python
+    import requests
+
+    response = requests.post(
+        "https://api.pathfinder.ai/v1/routes:decide",
+        headers={"Authorization": "Bearer sk_live_YOUR_API_KEY"},
+        json={"prompt": "Write a Python function that checks if a number is prime"}
+    )
+
+    decision = response.json()
+    print(decision)
+    ```
+  </Tab>
+
+  <Tab title="Node.js">
+    ```javascript
+    const axios = require('axios');
+
+    const response = await axios.post(
+      'https://api.pathfinder.ai/v1/routes:decide',
+      { prompt: 'Write a Python function that checks if a number is prime' },
+      { headers: { Authorization: 'Bearer sk_live_YOUR_API_KEY' } }
+    );
+
+    console.log(response.data);
+    ```
+  </Tab>
+
+  <Tab title="Postman">
+    1. Create a new POST request
+    2. URL: `https://api.pathfinder.ai/v1/routes:decide`
+    3. Headers tab:
+       - Key: `Authorization`
+       - Value: `Bearer sk_live_YOUR_API_KEY`
+    4. Body tab (raw JSON):
+       ```json
+       {
+         "prompt": "Write a Python function that checks if a number is prime"
+       }
+       ```
+    5. Click **Send**
+  </Tab>
+</Tabs>
+
+### Step 3: Read the Response
+
+You'll get back something like this:
+
+```json
+{
+  "decision_id": "550e8400-e29b-41d4-a716-446655440000",
+  "selected_model": "gpt-4-turbo-preview",
+  "provider": "openai",
+  "confidence": 0.95,
+  "estimated_cost_usd": 0.015,
+  "fallback_models": ["gpt-4", "claude-3-opus-20240229"],
+  "reasoning": "GPT-4 Turbo selected for optimal cost/quality balance on coding task",
+  "timestamp": "2025-11-11T14:30:00Z",
+  "routing_method": "heuristic",
+  "routing_latency_ms": 1.8
+}
+```
+
+**What each field means:**
+
+| Field | Meaning |
+|-------|---------|
+| `decision_id` | Unique ID for this decision (save for debugging) |
+| `selected_model` | The model Pathfinder recommends (e.g., `gpt-4-turbo-preview`) |
+| `provider` | Which company to call (e.g., `openai`, `anthropic`) |
+| `confidence` | How confident we are (0.0 = not sure, 1.0 = very sure) |
+| `estimated_cost_usd` | How much this will cost to run |
+| `fallback_models` | Backup models if primary fails |
+| `reasoning` | Why we picked this model |
+| `routing_latency_ms` | How long the decision took (should be less than 10ms) |
+
+### Step 4: Use the Decision
+
+Now you know which model to use! Send your prompt to that provider:
+
+<Tabs>
+  <Tab title="Using OpenAI (if selected_model starts with 'gpt')">
+    ```python
+    from openai import OpenAI
+
+    client = OpenAI(api_key="sk-...your-openai-key")
+
+    # Use the model from Pathfinder's decision
+    response = client.chat.completions.create(
+        model="gpt-4-turbo-preview",  # From Pathfinder decision
+        messages=[
+            {"role": "user", "content": "Write a Python function..."}
+        ]
+    )
+
+    print(response.choices[0].message.content)
+    ```
+  </Tab>
+
+  <Tab title="Using Anthropic (if selected_model starts with 'claude')">
+    ```python
+    from anthropic import Anthropic
+
+    client = Anthropic(api_key="sk-ant-...your-anthropic-key")
+
+    # Use the model from Pathfinder's decision
+    response = client.messages.create(
+        model="claude-3-opus-20240229",  # From Pathfinder decision
+        max_tokens=1024,
+        messages=[
+            {"role": "user", "content": "Write a Python function..."}
+        ]
+    )
+
+    print(response.content[0].text)
+    ```
+  </Tab>
+
+  <Tab title="Using Google (if selected_model starts with 'gemini')">
+    ```python
+    import google.generativeai as genai
+
+    genai.configure(api_key="AIz...your-google-key")
+
+    model = genai.GenerativeModel("gemini-2.5-pro")  # From Pathfinder decision
+
+    response = model.generate_content("Write a Python function...")
+    print(response.text)
+    ```
+  </Tab>
+</Tabs>
+
+### That's It! 🎉
+
+You've successfully:
+1. ✅ Made a routing decision
+2. ✅ Received a recommendation
+3. ✅ Used it with the provider's API
+
+## Common Next Steps
+
+<CardGroup cols={2}>
+  <Card
+    title="Add Authentication"
+    icon="lock"
+    href="/docs/api/getting-started/authentication"
+  >
+    Set up secure API key management
+  </Card>
+  <Card
+    title="Error Handling"
+    icon="exclamation"
+    href="/docs/api/guides/error-handling"
+  >
+    Handle API errors gracefully
+  </Card>
+  <Card
+    title="Cost Optimization"
+    icon="dollar-sign"
+    href="/docs/api/guides/cost-optimization"
+  >
+    Save money with smart constraints
+  </Card>
+  <Card
+    title="Full API Reference"
+    icon="book"
+    href="/docs/api/endpoints/routing-decision"
+  >
+    Learn all available options
+  </Card>
+</CardGroup>
+
+## Troubleshooting
+
+### "401 Unauthorized"
+Your API key is invalid or missing. Check:
+- [ ] API key starts with `sk_live_`
+- [ ] It's in the `Authorization: Bearer` header
+- [ ] There are no extra spaces or characters
+
+### "400 Bad Request"
+Your request is malformed. Check:
+- [ ] `prompt` field is not empty
+- [ ] `prompt` is a string (not an object)
+- [ ] You're using valid JSON
+
+### "503 Service Unavailable"
+All providers are temporarily down. This happens rarely. Try again in a few moments.
+
+## Next: Learn More
+
+- [Full API Reference](/docs/api/endpoints/routing-decision)
+- [Understanding Routing Decisions](/docs/api/core-concepts/routing-decisions)
+- [Privacy & Security](/docs/api/core-concepts/privacy-first-design)
+- [Language-Specific Guides](/docs/api/guides/python-integration)

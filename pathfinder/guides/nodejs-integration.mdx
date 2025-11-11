@@ -1,0 +1,198 @@
+---
+title: "Node.js Integration Guide"
+description: "Integrate Pathfinder into your Node.js/TypeScript application"
+---
+
+## Installation
+
+No SDK required! Use the native `fetch` API or any HTTP library.
+
+```bash
+npm install node-fetch  # if using Node.js < 18
+```
+
+## Quick Start
+
+```typescript
+const API_KEY = 'sk_live_your_api_key_here';
+const BASE_URL = 'https://api.pathfinder.ai/v1';
+
+async function getRoutingDecision(prompt: string) {
+  const response = await fetch(`${BASE_URL}/routes:decide`, {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${API_KEY}`,
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({ prompt })
+  });
+
+  if (!response.ok) {
+    throw new Error(`HTTP ${response.status}: ${await response.text()}`);
+  }
+
+  return response.json();
+}
+
+// Usage
+const decision = await getRoutingDecision('Write a JavaScript function...');
+console.log(`Use ${decision.selected_model} from ${decision.provider}`);
+```
+
+## Complete Example with OpenAI
+
+```typescript
+import OpenAI from 'openai';
+
+const pathfinderApiKey = process.env.PATHFINDER_API_KEY;
+const openaiApiKey = process.env.OPENAI_API_KEY;
+
+async function getRoutingDecision(prompt: string) {
+  const response = await fetch('https://api.pathfinder.ai/v1/routes:decide', {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${pathfinderApiKey}`,
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({ prompt })
+  });
+
+  return response.json();
+}
+
+async function executeCompletion(prompt: string, decision: any) {
+  if (decision.provider === 'openai') {
+    const openai = new OpenAI({ apiKey: openaiApiKey });
+    const completion = await openai.chat.completions.create({
+      model: decision.selected_model,
+      messages: [{ role: 'user', content: prompt }]
+    });
+    return completion.choices[0].message.content;
+  }
+  // Add other providers...
+}
+
+// Usage
+const prompt = 'Write a function to reverse a string';
+const decision = await getRoutingDecision(prompt);
+const result = await executeCompletion(prompt, decision);
+console.log(result);
+```
+
+## TypeScript Types
+
+```typescript
+interface RoutingDecisionRequest {
+  prompt: string;
+  constraints?: {
+    max_cost_usd?: number;
+    max_latency_ms?: number;
+    required_capabilities?: string[];
+  };
+  context?: {
+    user_id?: string;
+    session_id?: string;
+    metadata?: Record<string, any>;
+  };
+}
+
+interface RoutingDecisionResponse {
+  decision_id: string;
+  selected_model: string;
+  provider: string;
+  confidence: number;
+  estimated_cost_usd: number;
+  estimated_latency_ms: number;
+  reasoning: string;
+  fallback_options: Array<{
+    model: string;
+    provider: string;
+    confidence: number;
+    estimated_cost_usd: number;
+  }>;
+  prompt_features: {
+    length: number;
+    complexity: string;
+    language: string;
+    domain: string;
+  };
+  created_at: string;
+}
+```
+
+## Error Handling
+
+```typescript
+class PathfinderError extends Error {
+  constructor(
+    message: string,
+    public code: string,
+    public details?: any
+  ) {
+    super(message);
+  }
+}
+
+async function safeRoutingDecision(
+  prompt: string,
+  maxRetries: number = 3
+): Promise<RoutingDecisionResponse> {
+  for (let attempt = 0; attempt < maxRetries; attempt++) {
+    try {
+      const response = await fetch(
+        'https://api.pathfinder.ai/v1/routes:decide',
+        {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${API_KEY}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({ prompt })
+        }
+      );
+
+      if (response.ok) {
+        return response.json();
+      }
+
+      const error = await response.json();
+
+      if (response.status === 429) {
+        // Rate limit
+        const retryAfter = error.error.retry_after || 60;
+        await sleep(retryAfter * 1000);
+        continue;
+      }
+
+      if (response.status >= 500) {
+        // Server error - retry with backoff
+        await sleep(Math.pow(2, attempt) * 1000);
+        continue;
+      }
+
+      // Client error - don't retry
+      throw new PathfinderError(
+        error.error.message,
+        error.error.code,
+        error.error.details
+      );
+
+    } catch (err) {
+      if (attempt === maxRetries - 1) throw err;
+      await sleep(Math.pow(2, attempt) * 1000);
+    }
+  }
+
+  throw new Error('Max retries exceeded');
+}
+
+function sleep(ms: number): Promise<void> {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
+```
+
+## Next Steps
+
+- [Python Integration](/docs/api/guides/python-integration)
+- [cURL Examples](/docs/api/guides/curl-examples)
+- [Error Handling](/docs/api/guides/error-handling)

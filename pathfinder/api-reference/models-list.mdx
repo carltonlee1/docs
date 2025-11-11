@@ -1,0 +1,182 @@
+---
+title: "Supported Models"
+description: "Complete list of supported LLM models and pricing"
+---
+
+## Latest Models (November 2025)
+
+Pathfinder supports the latest real models from major providers. We call provider APIs directly using their native model names.
+
+## Anthropic Claude 4.5 Series
+
+Latest Claude models with state-of-the-art performance:
+
+| Model | Native API Name | Context Window | Use Case |
+|-------|----------------|----------------|----------|
+| Claude Sonnet 4.5 | `claude-sonnet-4-5-20250929` | 200K | SOTA for coding and agentic tasks |
+| Claude Haiku 4.5 | `claude-haiku-4-5-20251001` | 200K | Fastest with near-frontier intelligence |
+| Claude Opus 4.1 | `claude-opus-4-1-20250805` | 200K | Exceptional for specialized reasoning |
+
+**Pricing** (as of November 2025):
+- Sonnet 4.5: $3.00 input / $15.00 output per 1M tokens
+- Haiku 4.5: $0.25 input / $1.25 output per 1M tokens
+- Opus 4.1: $15.00 input / $75.00 output per 1M tokens
+
+## OpenAI GPT-5 Series
+
+Latest GPT models:
+
+| Model | Native API Name | Context Window | Use Case |
+|-------|----------------|----------------|----------|
+| GPT-5 | `gpt-5` | 128K | Flagship model for coding and reasoning |
+| GPT-5 Mini | `gpt-5-mini` | 128K | Fast, cost-effective |
+
+**Pricing** (as of November 2025):
+- GPT-5: $10.00 input / $30.00 output per 1M tokens
+- GPT-5 Mini: $0.50 input / $1.50 output per 1M tokens
+
+## Google Gemini 2.5 Series
+
+Latest Gemini models:
+
+| Model | Native API Name | Context Window | Use Case |
+|-------|----------------|----------------|----------|
+| Gemini 2.5 Pro | `gemini-2.5-pro` | 1M | State-of-the-art thinking model |
+| Gemini 2.5 Flash | `gemini-2.5-flash` | 1M | Best price-performance |
+| Gemini 2.5 Flash-Lite | `gemini-2.5-flash-lite` | 1M | Ultra fast, cost-efficient |
+
+**Pricing** (as of November 2025):
+- Gemini 2.5 Pro: $7.00 input / $21.00 output per 1M tokens
+- Gemini 2.5 Flash: $1.50 input / $4.50 output per 1M tokens
+- Gemini 2.5 Flash-Lite: $0.30 input / $0.90 output per 1M tokens
+
+## Model Selection Helper
+
+Pathfinder supports two formats for model IDs:
+
+### Native API Names (Direct Calls)
+```python
+"claude-sonnet-4-5-20250929"  # Anthropic native name
+"gpt-5"                       # OpenAI native name
+"gemini-2.5-pro"              # Google native name
+```
+
+### Helper Format (Convenience)
+```python
+"anthropic/claude-4.5-sonnet"  # Simplified format
+"openai/gpt-5"                 # Simplified format
+"google/gemini-2.5-flash"      # Simplified format
+```
+
+The helper format is automatically translated to native names via `get_llm_client_for_model()`.
+
+## Model Capabilities
+
+Each model supports different capabilities:
+
+| Capability | Description | Supported Models |
+|------------|-------------|------------------|
+| `text_generation` | General text generation | All models |
+| `code_generation` | Code writing and debugging | All models (especially Sonnet 4.5, GPT-5) |
+| `reasoning` | Complex reasoning tasks | Opus 4.1, GPT-5, Gemini 2.5 Pro |
+| `instruction_following` | Following complex instructions | All models |
+| `long_context` | Processing long documents | All Claude 4.5 models (200K), Gemini 2.5 (1M) |
+| `multimodal` | Image/video understanding | Gemini 2.5 Pro, GPT-5 (with vision) |
+
+## Filtering by Capability
+
+Request models with specific capabilities:
+
+```python
+decision = pathfinder.routes.decide(
+    prompt="Write a Python function to analyze this dataset...",
+    constraints={
+        "required_capabilities": ["code_generation", "reasoning"]
+    }
+)
+```
+
+## Deprecated Models
+
+**Do NOT use these outdated models:**
+
+❌ **OpenRouter** - We call provider APIs directly
+❌ **Claude 3.x models** (e.g., claude-3-opus-20240229) - Use Claude 4.5 series
+❌ **GPT-4o models** - Use GPT-5 series
+❌ **Gemini 2.0 models** - Use Gemini 2.5 series
+❌ **Fictional model names** - Only real models from official providers
+
+**Rationale**: Using real, currently available models ensures our code actually works. Fictional or outdated models cause 404 errors and confusion.
+
+## Cost Comparison
+
+Optimize costs by choosing the right model for your task:
+
+| Task Type | Recommended Model | Cost per 1M tokens | Savings vs Premium |
+|-----------|-------------------|-------------------|-------------------|
+| Simple text | Gemini 2.5 Flash-Lite | $0.30 input | 97% |
+| Code generation | Claude Sonnet 4.5 | $3.00 input | 80% vs Opus |
+| Complex reasoning | Claude Opus 4.1 | $15.00 input | Premium tier |
+| Long context | Gemini 2.5 Pro (1M) | $7.00 input | 53% vs Opus |
+
+## Usage Examples
+
+### Cost-Optimized Request
+
+```python
+# Let Pathfinder choose the cheapest model for simple tasks
+decision = pathfinder.routes.decide(
+    prompt="Translate 'hello' to Spanish",
+    constraints={"max_cost_usd": 0.001}
+)
+# Result: Likely Gemini 2.5 Flash-Lite or GPT-5 Mini
+```
+
+### Quality-Optimized Request
+
+```python
+# Request best model for complex reasoning
+decision = pathfinder.routes.decide(
+    prompt="Explain quantum field theory and its implications...",
+    constraints={
+        "required_capabilities": ["reasoning", "long_context"],
+        "max_cost_usd": 0.05
+    }
+)
+# Result: Likely Claude Opus 4.1 or GPT-5
+```
+
+### Code Generation Request
+
+```python
+# Optimize for code generation
+decision = pathfinder.routes.decide(
+    prompt="Write a binary search tree implementation in Rust...",
+    constraints={
+        "required_capabilities": ["code_generation"],
+        "max_cost_usd": 0.02
+    }
+)
+# Result: Likely Claude Sonnet 4.5 (best for coding)
+```
+
+## Pricing Notes
+
+- **Prices as of November 2025** - Subject to change
+- **Real-time pricing** - Pathfinder uses current provider rates
+- **Volume discounts** - Enterprise customers may have custom pricing
+- **Provider updates** - Check provider websites for latest rates
+
+## Provider Status
+
+Check real-time provider availability:
+
+- **Dashboard**: https://pathfinder.ai/status
+- **API**: `GET /providers/status`
+
+## Next Steps
+
+- [Model Providers](/docs/api/core-concepts/model-providers)
+- [Cost Optimization](/docs/api/guides/cost-optimization)
+- [Routing Decisions](/docs/api/core-concepts/routing-decisions)
+- [API Endpoints](/docs/api/endpoints/index)

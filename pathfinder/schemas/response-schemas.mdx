@@ -1,0 +1,175 @@
+---
+title: "Response Schemas"
+description: "Complete reference for response data structures"
+---
+
+## Routing Decision Response
+
+### Schema
+
+```json
+{
+  "decision_id": "string (UUID)",
+  "selected_model": "string",
+  "provider": "string",
+  "confidence": "float (0.0-1.0)",
+  "estimated_cost_usd": "float",
+  "estimated_latency_ms": "integer",
+  "reasoning": "string",
+  "fallback_options": [
+    {
+      "model": "string",
+      "provider": "string",
+      "confidence": "float",
+      "estimated_cost_usd": "float"
+    }
+  ],
+  "prompt_features": {
+    "length": "integer",
+    "complexity": "string",
+    "language": "string",
+    "domain": "string"
+  },
+  "created_at": "string (ISO 8601)"
+}
+```
+
+### Field Descriptions
+
+#### `decision_id`
+- **Type**: string (UUID)
+- **Example**: `"550e8400-e29b-41d4-a716-446655440000"`
+- **Description**: Unique identifier for this routing decision
+- **Use**: Retrieve decision later via `GET /routes:decide/{id}`
+
+#### `selected_model`
+- **Type**: string
+- **Example**: `"gpt-4-turbo-preview"`
+- **Description**: Recommended model ID
+- **Use**: Pass this to the provider's API
+
+#### `provider`
+- **Type**: string
+- **Example**: `"openai"`
+- **Allowed values**: `openai`, `anthropic`, `google`, `meta`, `mistral`, `cohere`
+- **Description**: Provider to use for this model
+
+#### `confidence`
+- **Type**: float
+- **Range**: 0.0 to 1.0
+- **Example**: `0.95`
+- **Description**: Confidence score for this routing decision
+- **Interpretation**:
+  - `0.9-1.0`: Very confident
+  - `0.7-0.9`: Confident
+  - `0.5-0.7`: Moderately confident
+  - `<0.5`: Low confidence (consider fallbacks)
+
+#### `estimated_cost_usd`
+- **Type**: float
+- **Example**: `0.015`
+- **Description**: Estimated cost in USD for this completion
+- **Note**: Actual cost may vary based on actual token usage
+
+#### `estimated_latency_ms`
+- **Type**: integer
+- **Example**: `1500`
+- **Description**: Estimated latency in milliseconds
+- **Note**: Based on provider p95 latency
+
+#### `reasoning`
+- **Type**: string
+- **Example**: `"GPT-4 Turbo selected for code generation task with high quality requirements"`
+- **Description**: Human-readable explanation of why this model was selected
+
+#### `fallback_options`
+- **Type**: array of objects
+- **Description**: Alternative models if primary fails
+- **Use**: Implement automatic failover logic
+
+Each fallback option contains:
+- `model`: Model ID
+- `provider`: Provider name
+- `confidence`: Confidence score
+- `estimated_cost_usd`: Estimated cost
+
+#### `prompt_features`
+- **Type**: object
+- **Description**: Extracted features from the prompt (privacy-safe)
+
+Fields:
+- `length`: Character count
+- `complexity`: `low`, `medium`, `high`
+- `language`: ISO 639-1 code (e.g., `en`)
+- `domain`: Task domain (e.g., `code_generation`, `creative_writing`)
+
+#### `created_at`
+- **Type**: string (ISO 8601)
+- **Example**: `"2025-11-11T15:30:00Z"`
+- **Description**: When this decision was created
+
+### Example Responses
+
+#### Standard Response
+
+```json
+{
+  "decision_id": "550e8400-e29b-41d4-a716-446655440000",
+  "selected_model": "gpt-4-turbo-preview",
+  "provider": "openai",
+  "confidence": 0.95,
+  "estimated_cost_usd": 0.015,
+  "estimated_latency_ms": 1500,
+  "reasoning": "GPT-4 Turbo selected for code generation task",
+  "fallback_options": [
+    {
+      "model": "claude-sonnet-4-5-20250929",
+      "provider": "anthropic",
+      "confidence": 0.92,
+      "estimated_cost_usd": 0.018
+    }
+  ],
+  "prompt_features": {
+    "length": 52,
+    "complexity": "medium",
+    "language": "en",
+    "domain": "code_generation"
+  },
+  "created_at": "2025-11-11T15:30:00Z"
+}
+```
+
+#### Cost-Optimized Response
+
+```json
+{
+  "decision_id": "660f9511-f39c-52e5-b827-557766551111",
+  "selected_model": "gpt-3.5-turbo",
+  "provider": "openai",
+  "confidence": 0.88,
+  "estimated_cost_usd": 0.002,
+  "estimated_latency_ms": 800,
+  "reasoning": "GPT-3.5 Turbo selected to meet max_cost_usd constraint of 0.01",
+  "fallback_options": [
+    {
+      "model": "claude-haiku-4-5-20251001",
+      "provider": "anthropic",
+      "confidence": 0.85,
+      "estimated_cost_usd": 0.0025
+    }
+  ],
+  "prompt_features": {
+    "length": 32,
+    "complexity": "low",
+    "language": "en",
+    "domain": "text_generation"
+  },
+  "created_at": "2025-11-11T15:35:00Z"
+}
+```
+
+## Next Steps
+
+- [Request Schemas](/docs/api/schemas/request-schemas)
+- [Error Schemas](/docs/api/schemas/error-schemas)
+- [API Endpoints](/docs/api/endpoints/index)

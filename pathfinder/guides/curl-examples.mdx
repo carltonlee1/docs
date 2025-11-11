@@ -1,0 +1,94 @@
+---
+title: "cURL Examples"
+description: "Test Pathfinder directly from the command line"
+---
+
+## Basic Request
+
+```bash
+curl -X POST https://api.pathfinder.ai/v1/routes:decide \
+  -H "Authorization: Bearer sk_live_your_api_key_here" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "prompt": "Write a Python function that calculates fibonacci numbers"
+  }'
+```
+
+## With Cost Constraint
+
+```bash
+curl -X POST https://api.pathfinder.ai/v1/routes:decide \
+  -H "Authorization: Bearer sk_live_your_api_key_here" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "prompt": "Explain quantum computing",
+    "constraints": {
+      "max_cost_usd": 0.01
+    }
+  }'
+```
+
+## With Capability Constraints
+
+```bash
+curl -X POST https://api.pathfinder.ai/v1/routes:decide \
+  -H "Authorization: Bearer sk_live_your_api_key_here" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "prompt": "Write a sorting algorithm in Rust",
+    "constraints": {
+      "required_capabilities": ["code_generation", "reasoning"]
+    }
+  }'
+```
+
+## Get Previous Decision
+
+```bash
+curl -X GET https://api.pathfinder.ai/v1/routes:decide/550e8400-e29b-41d4-a716-446655440000 \
+  -H "Authorization: Bearer sk_live_your_api_key_here"
+```
+
+## Pretty Print with jq
+
+```bash
+curl -X POST https://api.pathfinder.ai/v1/routes:decide \
+  -H "Authorization: Bearer sk_live_your_api_key_here" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "prompt": "Hello world"
+  }' | jq
+```
+
+## Extract Specific Fields
+
+```bash
+# Get just the model
+curl -X POST https://api.pathfinder.ai/v1/routes:decide \
+  -H "Authorization: Bearer $API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"prompt": "Hello"}' | jq -r '.selected_model'
+
+# Get model and provider
+curl -X POST https://api.pathfinder.ai/v1/routes:decide \
+  -H "Authorization: Bearer $API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"prompt": "Hello"}' | jq '{model: .selected_model, provider: .provider}'
+```
+
+## Save to File
+
+```bash
+curl -X POST https://api.pathfinder.ai/v1/routes:decide \
+  -H "Authorization: Bearer sk_live_your_api_key_here" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "prompt": "Write a function"
+  }' > decision.json
+```
+
+## Next Steps
+
+- [Python Integration](/docs/api/guides/python-integration)
+- [Node.js Integration](/docs/api/guides/nodejs-integration)
+- [API Reference](/docs/api/endpoints/index)

@@ -1,0 +1,174 @@
+---
+title: "Cost Optimization Guide"
+description: "Reduce LLM API costs with intelligent routing"
+---
+
+## Overview
+
+Pathfinder can reduce your LLM API costs by 30-70% through intelligent model selection.
+
+## How Cost Optimization Works
+
+### 1. Task-Based Routing
+
+Route simple tasks to cheaper models, complex tasks to expensive models.
+
+```python
+# Simple task → cheap model
+decision = pathfinder.routes.decide(
+    prompt="Translate 'hello' to Spanish",
+    constraints={"max_cost_usd": 0.001}
+)
+# Result: gpt-3.5-turbo ($0.0005)
+
+# Complex task → expensive model
+decision = pathfinder.routes.decide(
+    prompt="Write a complex algorithm...",
+    constraints={"max_cost_usd": 0.05}
+)
+# Result: gpt-4-turbo ($0.015)
+```
+
+### 2. Cost Constraints
+
+Set hard limits on per-request costs:
+
+```python
+decision = pathfinder.routes.decide(
+    prompt="Your prompt here",
+    constraints={"max_cost_usd": 0.01}
+)
+```
+
+Pathfinder will never recommend a model exceeding this cost.
+
+### 3. Provider Arbitrage
+
+Use cost differences between providers:
+
+| Task Type | Expensive Option | Cheaper Option | Savings |
+|-----------|------------------|----------------|---------|
+| Simple text | GPT-4 ($0.03) | GPT-3.5 ($0.001) | 97% |
+| Code generation | Claude Opus ($0.05) | Claude Sonnet ($0.01) | 80% |
+| Long context | GPT-4 Turbo ($0.03) | Gemini Pro ($0.007) | 77% |
+
+## Strategies
+
+### Budget-Based Routing
+
+```python
+# Set monthly budget
+MONTHLY_BUDGET = 1000  # $1000/month
+monthly_spend = get_current_spend()  # Track via analytics
+
+# Adjust constraints based on remaining budget
+if monthly_spend > MONTHLY_BUDGET * 0.8:
+    # Approaching budget - use cheaper models
+    max_cost = 0.001
+else:
+    # Budget available - allow more expensive models
+    max_cost = 0.05
+
+decision = pathfinder.routes.decide(
+    prompt=prompt,
+    constraints={"max_cost_usd": max_cost}
+)
+```
+
+### User-Tier Routing
+
+```python
+# Free users → cheap models
+# Paid users → expensive models
+
+if user.tier == "free":
+    max_cost = 0.001
+elif user.tier == "pro":
+    max_cost = 0.01
+else:  # enterprise
+    max_cost = 0.05
+
+decision = pathfinder.routes.decide(
+    prompt=prompt,
+    constraints={"max_cost_usd": max_cost}
+)
+```
+
+### Prompt Complexity Detection
+
+Let Pathfinder automatically detect complexity:
+
+```python
+# No constraints - Pathfinder uses cheapest model that can handle it
+decision = pathfinder.routes.decide(prompt=prompt)
+
+# Simple prompt → cheap model
+# "Hello" → gpt-3.5-turbo ($0.0005)
+
+# Complex prompt → expensive model
+# "Explain quantum field theory" → gpt-4 ($0.03)
+```
+
+## Cost Tracking
+
+### Dashboard Analytics
+
+View cost breakdowns at: https://pathfinder.ai/dashboard/analytics
+
+- Total spend by model
+- Cost per user
+- Cost trends over time
+
+### API Analytics
+
+```python
+# Get cost analytics
+response = requests.get(
+    "https://api.pathfinder.ai/v1/analytics/costs",
+    headers={"Authorization": f"Bearer {API_KEY}"},
+    params={
+        "start_date": "2025-11-01",
+        "end_date": "2025-11-11"
+    }
+)
+
+analytics = response.json()
+print(f"Total spend: ${analytics['total_usd']}")
+print(f"Average cost per request: ${analytics['avg_cost_usd']}")
+```
+
+## Cost Estimation
+
+Pathfinder returns cost estimates:
+
+```json
+{
+  "estimated_cost_usd": 0.015,
+  "fallback_options": [
+    {
+      "model": "claude-sonnet-4-5-20250929",
+      "estimated_cost_usd": 0.018
+    },
+    {
+      "model": "gpt-3.5-turbo",
+      "estimated_cost_usd": 0.002
+    }
+  ]
+}
+```
+
+Use these for budget planning.
+
+## Best Practices
+
+1. **Set cost constraints for user-facing features**
+2. **Use cheaper models for internal tools**
+3. **Track spend per user/tenant**
+4. **Review analytics weekly**
+5. **Test prompt rewrites for cost reduction**
+
+## Next Steps
+
+- [API Endpoints](/docs/api/endpoints/index)
+- [Python Integration](/docs/api/guides/python-integration)
+- [Routing Decisions](/docs/api/core-concepts/routing-decisions)

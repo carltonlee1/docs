@@ -1,0 +1,119 @@
+---
+title: "Troubleshooting"
+description: "Common issues and solutions"
+---
+
+## Authentication Issues
+
+### Invalid API Key
+
+**Error**: `401 Unauthorized: Invalid API key`
+
+**Solution**:
+1. Verify your API key at https://pathfinder.ai/dashboard/api-keys
+2. Ensure you're using the correct key (starts with `sk_live_` or `sk_test_`)
+3. Check for trailing spaces or newlines in your key
+
+```bash
+# Test your API key
+curl https://api.pathfinder.ai/v1/routes:decide \
+  -H "Authorization: Bearer sk_live_your_key_here" \
+  -H "Content-Type: application/json" \
+  -d '{"prompt": "test"}'
+```
+
+## Rate Limiting
+
+### Rate Limit Exceeded
+
+**Error**: `429 Too Many Requests`
+
+**Solution**:
+1. Respect the `retry_after` value in the error response
+2. Implement exponential backoff
+3. Consider upgrading your plan at https://pathfinder.ai/pricing
+
+```python
+if response.status_code == 429:
+    retry_after = response.json()["error"].get("retry_after", 60)
+    time.sleep(retry_after)
+```
+
+## Request Errors
+
+### Prompt Too Long
+
+**Error**: `400 Bad Request: Prompt exceeds maximum length`
+
+**Solution**:
+- Max prompt length: 100,000 characters
+- Truncate or summarize longer prompts
+- Split into multiple requests
+
+### Invalid Cost Constraint
+
+**Error**: `400 Bad Request: max_cost_usd must be greater than 0`
+
+**Solution**:
+- Ensure cost constraints are positive floats
+- Use realistic values (e.g., 0.001 to 0.5)
+
+## Connection Issues
+
+### Timeout Errors
+
+**Error**: `Connection timeout after 30s`
+
+**Solution**:
+1. Check your network connection
+2. Verify API status at https://status.pathfinder.ai
+3. Increase client timeout to 60s
+
+```python
+response = requests.post(
+    url,
+    json=data,
+    timeout=60  # Increase timeout
+)
+```
+
+### SSL Certificate Errors
+
+**Error**: `SSL: CERTIFICATE_VERIFY_FAILED`
+
+**Solution**:
+1. Update your system's root certificates
+2. Update Python's certifi package: `pip install --upgrade certifi`
+
+## Response Issues
+
+### Empty Response
+
+**Problem**: Response is empty or malformed
+
+**Solution**:
+1. Check HTTP status code first
+2. Verify Content-Type header is `application/json`
+3. Log raw response for debugging
+
+```python
+response = requests.post(url, json=data)
+print(f"Status: {response.status_code}")
+print(f"Headers: {response.headers}")
+print(f"Body: {response.text}")
+```
+
+## Getting Help
+
+If you're still stuck:
+
+1. **Check Status Page**: https://status.pathfinder.ai
+2. **Search FAQ**: /docs/api/support/faq
+3. **Contact Support**: support@pathfinder.ai
+4. **Report Bug**: https://github.com/naivana-internal/pathfinder/issues
+
+Include in your support request:
+- Request ID from response headers (`X-Request-ID`)
+- Timestamp of the request
+- HTTP status code and error message
+- Minimal reproducible code example

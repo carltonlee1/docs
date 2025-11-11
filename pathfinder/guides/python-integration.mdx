@@ -1,0 +1,134 @@
+---
+title: "Python Integration Guide"
+description: "Integrate Pathfinder into your Python application"
+---
+
+## Installation
+
+No SDK required! Pathfinder works with standard HTTP libraries.
+
+```bash
+pip install requests  # or httpx, aiohttp, etc.
+```
+
+## Quick Start
+
+```python
+import requests
+
+API_KEY = "sk_live_your_api_key_here"
+BASE_URL = "https://api.pathfinder.ai/v1"
+
+def get_routing_decision(prompt: str):
+    response = requests.post(
+        f"{BASE_URL}/routes:decide",
+        headers={
+            "Authorization": f"Bearer {API_KEY}",
+            "Content-Type": "application/json"
+        },
+        json={"prompt": prompt}
+    )
+    response.raise_for_status()
+    return response.json()
+
+# Usage
+decision = get_routing_decision("Write a Python function for...")
+print(f"Use {decision['selected_model']} from {decision['provider']}")
+```
+
+## Complete Example with OpenAI
+
+```python
+import requests
+import openai
+
+# Step 1: Get routing decision from Pathfinder
+def get_routing_decision(prompt: str):
+    response = requests.post(
+        "https://api.pathfinder.ai/v1/routes:decide",
+        headers={"Authorization": f"Bearer {PATHFINDER_API_KEY}"},
+        json={"prompt": prompt}
+    )
+    return response.json()
+
+# Step 2: Execute with the recommended provider
+def execute_completion(prompt: str, decision: dict):
+    if decision["provider"] == "openai":
+        client = openai.OpenAI(api_key=OPENAI_API_KEY)
+        response = client.chat.completions.create(
+            model=decision["selected_model"],
+            messages=[{"role": "user", "content": prompt}]
+        )
+        return response.choices[0].message.content
+    # Add other providers...
+
+# Step 3: Put it together
+prompt = "Write a Python function that calculates fibonacci numbers"
+decision = get_routing_decision(prompt)
+result = execute_completion(prompt, decision)
+print(result)
+```
+
+## Async Example
+
+```python
+import asyncio
+import httpx
+
+async def get_routing_decision(prompt: str):
+    async with httpx.AsyncClient() as client:
+        response = await client.post(
+            "https://api.pathfinder.ai/v1/routes:decide",
+            headers={"Authorization": f"Bearer {API_KEY}"},
+            json={"prompt": prompt}
+        )
+        return response.json()
+
+async def main():
+    decision = await get_routing_decision("Hello world")
+    print(decision)
+
+asyncio.run(main())
+```
+
+## Error Handling
+
+```python
+import requests
+
+def safe_routing_decision(prompt: str, max_retries: int = 3):
+    for attempt in range(max_retries):
+        try:
+            response = requests.post(
+                "https://api.pathfinder.ai/v1/routes:decide",
+                headers={"Authorization": f"Bearer {API_KEY}"},
+                json={"prompt": prompt},
+                timeout=10
+            )
+
+            if response.status_code == 200:
+                return response.json()
+            elif response.status_code == 429:
+                # Rate limit
+                retry_after = response.json()["error"].get("retry_after", 60)
+                time.sleep(retry_after)
+            elif response.status_code >= 500:
+                # Server error - retry
+                time.sleep(2 ** attempt)
+            else:
+                # Client error - don't retry
+                response.raise_for_status()
+
+        except requests.exceptions.RequestException as e:
+            if attempt == max_retries - 1:
+                raise
+            time.sleep(2 ** attempt)
+
+    raise Exception("Max retries exceeded")
+```
+
+## Next Steps
+
+- [Node.js Integration](/docs/api/guides/nodejs-integration)
+- [cURL Examples](/docs/api/guides/curl-examples)
+- [Cost Optimization](/docs/api/guides/cost-optimization)

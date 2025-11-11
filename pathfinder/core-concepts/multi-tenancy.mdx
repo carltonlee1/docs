@@ -1,0 +1,147 @@
+---
+title: "Multi-Tenancy"
+description: "How Pathfinder isolates data between organizations"
+---
+
+## Overview
+
+Pathfinder is designed as a multi-tenant SaaS platform. Each organization (tenant) has complete isolation from other tenants.
+
+## Tenant Isolation Layers
+
+Pathfinder enforces tenant isolation at **three layers**:
+
+### 1. API Layer
+
+Every API request must include a valid JWT token with tenant claims:
+
+```http
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+```
+
+The JWT contains:
+```json
+{
+  "sub": "user_123",
+  "tenant_id": "acme-corp",
+  "roles": ["admin"]
+}
+```
+
+All endpoints validate that the tenant_id in the token matches the requested resource.
+
+### 2. Database Layer
+
+PostgreSQL Row-Level Security (RLS) policies enforce tenant boundaries:
+
+```sql
+-- Every query automatically filtered by tenant
+CREATE POLICY tenant_isolation ON routing_decisions
+    USING (tenant_id = current_setting('app.tenant_id')::uuid);
+```
+
+Even if the application layer has a bug, the database layer prevents cross-tenant data access.
+
+### 3. Application Layer
+
+All SQLAlchemy queries automatically include tenant filters:
+
+```python
+# Set tenant context for RLS
+await db.execute(
+    text("SET LOCAL app.tenant_id = :tenant_id"),
+    {"tenant_id": tenant_id}
+)
+
+# All queries automatically scoped
+stmt = select(RoutingDecision).where(
+    RoutingDecision.tenant_id == tenant_id
+)
+```
+
+## How Tenants Are Created
+
+1. **Sign up**: User creates an account at https://pathfinder.ai/signup
+2. **Organization created**: New tenant_id generated (UUID)
+3. **API key issued**: Tenant-scoped API key created
+4. **Isolation enabled**: All data automatically scoped to tenant
+
+## Tenant ID Format
+
+Tenant IDs are UUIDs:
+```
+550e8400-e29b-41d4-a716-446655440000
+```
+
+You can find your tenant ID in:
+- Dashboard: https://pathfinder.ai/dashboard/settings
+- API response headers: `X-Tenant-ID`
+- JWT token claims
+
+## API Key Scoping
+
+Each API key is scoped to a single tenant:
+
+```
+sk_live_acme_corp_abc123...
+       ^^^^^^^^^ tenant slug
+```
+
+When you make a request with this key, all data is automatically scoped to that tenant.
+
+## Resource Isolation
+
+| Resource | Isolation Method |
+|----------|------------------|
+| Routing decisions | Row-level security |
+| API keys | Foreign key to tenant |
+| Training runs | Tenant-scoped workflows |
+| Audit logs | Tenant-scoped queries |
+| Event streams | Tenant-prefixed Redis keys |
+
+## Multi-Tenant Testing
+
+We validate tenant isolation through:
+
+- **Unit tests**: Verify tenant filters applied
+- **Integration tests**: Test cross-tenant access attempts
+- **Chaos tests**: Simulate tenant isolation failures
+- **Penetration testing**: Annual third-party security audits
+
+Example test:
+```python
+async def test_cannot_access_other_tenant_data():
+    # Tenant A creates a decision
+    decision_a = await create_decision(tenant_id="acme-corp")
+
+    # Tenant B tries to access it (should fail)
+    with pytest.raises(Forbidden):
+        await get_decision(
+            decision_id=decision_a.id,
+            tenant_id="evil-corp"
+        )
+```
+
+## Shared Infrastructure
+
+While data is isolated, some infrastructure is shared:
+
+| Component | Shared? | Notes |
+|-----------|---------|-------|
+| Database | Yes | Logical isolation via RLS |
+| Redis | Yes | Key prefixing |
+| API servers | Yes | Stateless, no cross-tenant state |
+| S3 buckets | Yes | Tenant-prefixed keys |
+| Temporal workflows | Yes | Tenant ID in workflow input |
+
+Enterprise customers can opt for dedicated infrastructure.
+
+## Sub-Organizations
+
+Coming soon: Support for sub-organizations within a tenant (e.g., departments, teams).
+
+## Questions?
+
+- [Privacy & Security](/docs/api/core-concepts/privacy-first-design)
+- [Authentication](/docs/api/getting-started/authentication)
+- Contact support: [support@pathfinder.ai](mailto:support@pathfinder.ai)

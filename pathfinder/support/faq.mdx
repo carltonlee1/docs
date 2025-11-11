@@ -1,0 +1,129 @@
+---
+title: "Frequently Asked Questions"
+description: "Common questions about Pathfinder"
+---
+
+## General
+
+### What is Pathfinder?
+
+Pathfinder is an intelligent API that recommends the best LLM model and provider for your prompt, optimizing for cost, quality, and latency.
+
+### How is this different from OpenRouter?
+
+- **OpenRouter**: You choose the model, OpenRouter proxies the request
+- **Pathfinder**: Pathfinder chooses the model for you, you execute the request
+
+Pathfinder is a **decision service**, not a proxy.
+
+### Do I need Pathfinder API keys AND provider API keys?
+
+Yes. Pathfinder recommends which model to use, but you execute the completion with the provider directly. You need:
+- Pathfinder API key (for routing decisions)
+- Provider API keys (OpenAI, Anthropic, etc. for executing completions)
+
+## Privacy & Security
+
+### Do you store my prompts?
+
+No. We only store:
+- SHA-256 hash of your prompt (irreversible)
+- Extracted features (length, complexity, language)
+- Selected model and cost estimates
+
+See [Privacy-First Design](/docs/api/core-concepts/privacy-first-design) for details.
+
+### Is my data shared with model providers?
+
+No. Pathfinder doesn't share your data with anyone. You execute completions directly with providers using your own API keys.
+
+### Can I use Pathfinder for HIPAA-compliant applications?
+
+Yes, with our Enterprise plan. Contact sales@pathfinder.ai for a Business Associate Agreement (BAA).
+
+## Pricing & Billing
+
+### How much does Pathfinder cost?
+
+See our pricing at https://pathfinder.ai/pricing
+
+- **Free**: 1,000 decisions/month
+- **Pro**: $49/month for 50,000 decisions
+- **Enterprise**: Custom pricing
+
+### Do I pay for the LLM completions?
+
+Yes. Pathfinder charges for routing decisions. You pay providers separately for completions.
+
+### Can I see how much I'm saving?
+
+Yes. View cost analytics at https://pathfinder.ai/dashboard/analytics
+
+## Technical
+
+### What's the API latency?
+
+- p95: <150ms with cache
+- p99: <300ms with cache
+
+### What providers do you support?
+
+- OpenAI (GPT-4, GPT-3.5)
+- Anthropic (Claude 3 Opus, Sonnet, Haiku)
+- Google (Gemini Pro, Ultra)
+- Meta (Llama 3)
+- Mistral
+- Cohere
+
+See [Model Providers](/docs/api/core-concepts/model-providers) for complete list.
+
+### Can I override Pathfinder's recommendation?
+
+Yes. The routing decision is a recommendation. You can always choose a different model.
+
+### What if Pathfinder recommends an unavailable model?
+
+Use the `fallback_options` in the response. These are alternative models if the primary fails.
+
+## Integration
+
+### Do you have an SDK?
+
+No SDK needed. Use any HTTP client (requests, fetch, cURL, etc.).
+
+### Can I use Pathfinder with LangChain?
+
+Yes. Create a custom LangChain component that calls Pathfinder for model selection.
+
+### Does Pathfinder work with streaming?
+
+Yes. Pathfinder recommends the model. You implement streaming with the provider's API.
+
+## Troubleshooting
+
+### I'm getting 401 Unauthorized
+
+Check your API key:
+1. Copy from https://pathfinder.ai/dashboard/api-keys
+2. Ensure it starts with `sk_live_` or `sk_test_`
+3. Use Bearer token format: `Authorization: Bearer sk_live_...`
+
+### I'm getting 429 Rate Limit Exceeded
+
+You've exceeded your plan's rate limit:
+1. Respect the `retry_after` value
+2. Implement exponential backoff
+3. Upgrade your plan at https://pathfinder.ai/pricing
+
+### My prompt is being rejected
+
+Common issues:
+- Prompt exceeds 100,000 characters (truncate it)
+- Invalid JSON (check syntax)
+- Invalid constraints (ensure positive floats)
+
+## Still Have Questions?
+
+- Email: support@pathfinder.ai
+- Slack: https://pathfinder.ai/slack
+- GitHub: https://github.com/naivana-internal/pathfinder/issues

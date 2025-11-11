@@ -1,0 +1,246 @@
+---
+title: "Authentication & API Keys"
+description: "How to authenticate requests and manage API keys securely"
+---
+
+## Authentication
+
+All API requests to Pathfinder must include authentication. We use Bearer tokens for security.
+
+### Authentication Format
+
+Include your API key in the `Authorization` header of every request:
+
+```
+Authorization: Bearer sk_live_YOUR_API_KEY
+```
+
+### Example Request
+
+```bash
+curl -X POST https://api.pathfinder.ai/v1/routes:decide \
+  -H "Authorization: Bearer sk_live_abc123def456..." \
+  -H "Content-Type: application/json" \
+  -d '{"prompt": "..."}'
+```
+
+## API Key Management
+
+### Creating an API Key
+
+1. Go to [dashboard.pathfinder.ai](https://dashboard.pathfinder.ai)
+2. Navigate to **API Keys** in the left sidebar
+3. Click **Create New Key**
+4. Give your key a descriptive name (e.g., "Production API", "Development", "Testing")
+5. Click **Create**
+6. **Copy the key immediately** - you won't see it again
+
+### API Key Formats
+
+Pathfinder uses key prefixes to identify environment:
+
+| Prefix | Environment | Use Case |
+|--------|-------------|----------|
+| `sk_live_` | Production | Real API calls, charged to your account |
+| `sk_test_` | Sandbox/Testing | Free testing, no charges, no real routing |
+
+### Key Security Best Practices
+
+<Warning>
+Never expose your API keys! They give full access to your account.
+</Warning>
+
+**DO:**
+- ✅ Store keys in environment variables
+- ✅ Use different keys for dev/test/prod
+- ✅ Rotate keys regularly (monthly)
+- ✅ Use short-lived keys when possible
+- ✅ Restrict key permissions by team/project
+
+**DON'T:**
+- ❌ Commit keys to Git (use `.env` files with `.gitignore`)
+- ❌ Log keys in application logs
+- ❌ Share keys in Slack, email, or messaging
+- ❌ Use the same key for multiple projects
+- ❌ Leave old keys active
+
+### Managing Keys in Your Code
+
+#### Option 1: Environment Variables (Recommended)
+
+```bash
+# .env file (add to .gitignore!)
+PATHFINDER_API_KEY=sk_live_abc123...
+```
+
+```python
+# In your code
+import os
+api_key = os.getenv('PATHFINDER_API_KEY')
+
+response = requests.post(
+    'https://api.pathfinder.ai/v1/routes:decide',
+    headers={'Authorization': f'Bearer {api_key}'},
+    json={'prompt': '...'}
+)
+```
+
+#### Option 2: Configuration File
+
+```python
+# config.py (excluded from Git)
+PATHFINDER_API_KEY = 'sk_live_abc123...'
+```
+
+```python
+# In your application
+from config import PATHFINDER_API_KEY
+
+response = requests.post(
+    'https://api.pathfinder.ai/v1/routes:decide',
+    headers={'Authorization': f'Bearer {PATHFINDER_API_KEY}'},
+    json={'prompt': '...'}
+)
+```
+
+#### Option 3: Secrets Management (Production)
+
+For production applications, use a secrets manager:
+
+**AWS Secrets Manager:**
+```python
+import boto3
+
+client = boto3.client('secretsmanager')
+secret = client.get_secret_value(SecretId='pathfinder-api-key')
+api_key = secret['SecretString']
+```
+
+**HashiCorp Vault:**
+```python
+import hvac
+
+client = hvac.Client(url='http://vault:8200')
+secret = client.secrets.kv.read_secret_version(path='pathfinder-api-key')
+api_key = secret['data']['data']['api_key']
+```
+
+**Google Cloud Secret Manager:**
+```python
+from google.cloud import secretmanager
+
+client = secretmanager.SecretManagerServiceClient()
+name = f"projects/my-project/secrets/pathfinder-api-key/versions/latest"
+response = client.access_secret_version(request={"name": name})
+api_key = response.payload.data.decode('UTF-8')
+```
+
+### Key Rotation
+
+Rotate your API keys regularly for security:
+
+1. **Create a new key** in the dashboard
+2. **Update your applications** to use the new key
+3. **Wait 24 hours** to ensure all systems updated
+4. **Delete the old key**
+
+## Tenant Authentication
+
+### What is a Tenant?
+
+If you're using Pathfinder in a multi-tenant application (e.g., a SaaS platform), you need to specify which tenant the request is for.
+
+The `tenant_id` is automatically determined from your API key. Each API key belongs to exactly one organization/tenant.
+
+**Note:** If you need to serve multiple tenants from a single application, you should use separate API keys per tenant, or contact support about multi-tenant API key handling.
+
+## Testing Authentication
+
+### Verify Your Key Works
+
+```bash
+curl -X POST https://api.pathfinder.ai/v1/routes:decide \
+  -H "Authorization: Bearer sk_live_YOUR_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"prompt": "test"}'
+```
+
+If successful, you'll get a routing decision. If unsuccessful:
+
+| Response | Meaning | Solution |
+|----------|---------|----------|
+| `401 Unauthorized` | Invalid or missing key | Check key format and spelling |
+| `403 Forbidden` | Key disabled or revoked | Create a new key in dashboard |
+| `429 Too Many Requests` | Rate limited | You're sending too many requests too fast |
+
+### Using Test Keys
+
+For development and testing, use `sk_test_` keys:
+
+```bash
+curl -X POST https://api.pathfinder.ai/v1/routes:decide \
+  -H "Authorization: Bearer sk_test_dev123..." \
+  -H "Content-Type: application/json" \
+  -d '{"prompt": "test"}'
+```
+
+Test keys:
+- Are free to use (no charges)
+- Return mock routing decisions
+- Help you test integration without costs
+- Never actually call model providers
+
+## Rate Limits
+
+All API keys have rate limits to prevent abuse:
+
+| Plan | Requests/Minute | Requests/Day |
+|------|-----------------|--------------|
+| Starter | 60 | 10,000 |
+| Professional | 300 | 100,000 |
+| Enterprise | Custom | Custom |
+
+If you exceed rate limits, you'll receive a `429 Too Many Requests` response.
+
+**Handling rate limits:**
+
+```python
+import requests
+import time
+
+def make_request_with_retry(prompt, api_key, max_retries=3):
+    for attempt in range(max_retries):
+        response = requests.post(
+            'https://api.pathfinder.ai/v1/routes:decide',
+            headers={'Authorization': f'Bearer {api_key}'},
+            json={'prompt': prompt}
+        )
+
+        if response.status_code == 429:
+            # Rate limited - wait and retry
+            wait_time = 2 ** attempt  # Exponential backoff
+            time.sleep(wait_time)
+            continue
+
+        return response.json()
+
+    raise Exception("Max retries exceeded")
+```
+
+## Security Checklist
+
+- [ ] API key stored in environment variable or secrets manager
+- [ ] API key not committed to Git
+- [ ] Using production keys (`sk_live_`) only in production
+- [ ] Using test keys (`sk_test_`) in development
+- [ ] Different keys for different environments
+- [ ] API key rotation scheduled monthly
+- [ ] Old/unused keys deleted
+- [ ] Rate limiting handled in application code
+- [ ] Error messages don't leak API keys
+
+## Next Steps
+
+- [Make Your First API Call](/docs/api/getting-started/quickstart)
+- [Error Handling Guide](/docs/api/guides/error-handling)
+- [Production Deployment](/docs/api/guides/production-checklist)

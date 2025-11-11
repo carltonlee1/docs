@@ -1,0 +1,207 @@
+---
+title: "POST /routes:decide"
+description: "Get an intelligent routing decision for your prompt"
+---
+
+## Endpoint
+
+```
+POST https://api.pathfinder.ai/v1/routes:decide
+```
+
+## Description
+
+Analyzes your prompt and returns a routing decision with the recommended model, provider, and estimated cost.
+
+**Privacy Note**: Your raw prompt is never stored. Only a SHA-256 hash and extracted features are saved.
+
+## Request
+
+### Headers
+
+```http
+Content-Type: application/json
+Authorization: Bearer sk_live_your_api_key_here
+```
+
+### Request Body
+
+```json
+{
+  "prompt": "Write a Python function that calculates fibonacci numbers",
+  "constraints": {
+    "max_cost_usd": 0.05,
+    "max_latency_ms": 5000,
+    "required_capabilities": ["code_generation"]
+  },
+  "context": {
+    "user_id": "user_123",
+    "session_id": "session_456"
+  }
+}
+```
+
+### Parameters
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `prompt` | string | Yes | The prompt to route (max 100,000 chars) |
+| `constraints` | object | No | Cost and latency constraints |
+| `constraints.max_cost_usd` | float | No | Maximum acceptable cost in USD |
+| `constraints.max_latency_ms` | integer | No | Maximum acceptable latency in milliseconds |
+| `constraints.required_capabilities` | array | No | Required model capabilities (e.g., "code_generation", "reasoning") |
+| `context` | object | No | Additional context for routing |
+| `context.user_id` | string | No | Your user ID for analytics |
+| `context.session_id` | string | No | Session ID for tracking |
+
+## Response
+
+### Success Response (200 OK)
+
+```json
+{
+  "decision_id": "550e8400-e29b-41d4-a716-446655440000",
+  "selected_model": "gpt-4-turbo-preview",
+  "provider": "openai",
+  "confidence": 0.95,
+  "estimated_cost_usd": 0.015,
+  "estimated_latency_ms": 1500,
+  "reasoning": "GPT-4 Turbo selected for code generation task with high quality requirements",
+  "fallback_options": [
+    {
+      "model": "claude-sonnet-4-5-20250929",
+      "provider": "anthropic",
+      "confidence": 0.92,
+      "estimated_cost_usd": 0.018
+    }
+  ],
+  "prompt_features": {
+    "length": 52,
+    "complexity": "medium",
+    "language": "en",
+    "domain": "code_generation"
+  },
+  "created_at": "2025-11-11T15:30:00Z"
+}
+```
+
+### Response Fields
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `decision_id` | string | Unique ID for this routing decision |
+| `selected_model` | string | Recommended model ID |
+| `provider` | string | Provider name (openai, anthropic, google, etc.) |
+| `confidence` | float | Confidence score (0.0-1.0) |
+| `estimated_cost_usd` | float | Estimated cost in USD |
+| `estimated_latency_ms` | integer | Estimated latency in milliseconds |
+| `reasoning` | string | Human-readable explanation |
+| `fallback_options` | array | Alternative models if primary fails |
+| `prompt_features` | object | Extracted features (length, complexity, etc.) |
+| `created_at` | string | ISO 8601 timestamp |
+
+## Error Responses
+
+### 400 Bad Request
+
+```json
+{
+  "error": {
+    "code": "invalid_request",
+    "message": "Prompt is required",
+    "details": {
+      "field": "prompt",
+      "reason": "missing_required_field"
+    }
+  }
+}
+```
+
+### 401 Unauthorized
+
+```json
+{
+  "error": {
+    "code": "unauthorized",
+    "message": "Invalid API key"
+  }
+}
+```
+
+### 429 Too Many Requests
+
+```json
+{
+  "error": {
+    "code": "rate_limit_exceeded",
+    "message": "Rate limit exceeded. Retry after 60 seconds",
+    "retry_after": 60
+  }
+}
+```
+
+## Examples
+
+### cURL
+
+```bash
+curl -X POST https://api.pathfinder.ai/v1/routes:decide \
+  -H "Authorization: Bearer sk_live_abc123..." \
+  -H "Content-Type: application/json" \
+  -d '{
+    "prompt": "Write a Python function that calculates fibonacci numbers",
+    "constraints": {
+      "max_cost_usd": 0.05
+    }
+  }'
+```
+
+### Python
+
+```python
+import requests
+
+response = requests.post(
+    "https://api.pathfinder.ai/v1/routes:decide",
+    headers={
+        "Authorization": "Bearer sk_live_abc123...",
+        "Content-Type": "application/json"
+    },
+    json={
+        "prompt": "Write a Python function that calculates fibonacci numbers",
+        "constraints": {
+            "max_cost_usd": 0.05
+        }
+    }
+)
+
+decision = response.json()
+print(f"Use model: {decision['selected_model']} from {decision['provider']}")
+```
+
+### Node.js
+
+```javascript
+const response = await fetch('https://api.pathfinder.ai/v1/routes:decide', {
+  method: 'POST',
+  headers: {
+    'Authorization': 'Bearer sk_live_abc123...',
+    'Content-Type': 'application/json'
+  },
+  body: JSON.stringify({
+    prompt: 'Write a Python function that calculates fibonacci numbers',
+    constraints: {
+      max_cost_usd: 0.05
+    }
+  })
+});
+
+const decision = await response.json();
+console.log(`Use model: ${decision.selected_model} from ${decision.provider}`);
+```
+
+## Next Steps
+
+- [Get Decision by ID](/docs/api/endpoints/get-decision)
+- [Python Integration Guide](/docs/api/guides/python-integration)
+- [Error Handling](/docs/api/guides/error-handling)

@@ -1,0 +1,300 @@
+---
+title: "Error Schemas"
+description: "Complete reference for error responses"
+---
+
+## Error Response Schema
+
+All API errors follow this consistent structure:
+
+```json
+{
+  "error": {
+    "code": "string",
+    "message": "string",
+    "details": {} (optional),
+    "retry_after": "integer (optional)"
+  }
+}
+```
+
+### Fields
+
+#### `error.code`
+- **Type**: string
+- **Description**: Machine-readable error code
+- **Use**: Implement error handling logic based on code
+
+#### `error.message`
+- **Type**: string
+- **Description**: Human-readable error message
+- **Use**: Display to users or log for debugging
+
+#### `error.details`
+- **Type**: object (optional)
+- **Description**: Additional context about the error
+- **Use**: Debug-specific error cases
+
+#### `error.retry_after`
+- **Type**: integer (optional)
+- **Description**: Seconds to wait before retrying
+- **Use**: Implement exponential backoff
+
+## HTTP Status Codes
+
+| Status | Name | When |
+|--------|------|------|
+| 400 | Bad Request | Invalid request parameters |
+| 401 | Unauthorized | Invalid or missing API key |
+| 403 | Forbidden | Valid key but no access |
+| 404 | Not Found | Resource doesn't exist |
+| 429 | Too Many Requests | Rate limit exceeded |
+| 500 | Internal Server Error | Server error |
+| 503 | Service Unavailable | Maintenance or overload |
+
+## Error Codes
+
+### 400 Bad Request
+
+#### `missing_prompt`
+```json
+{
+  "error": {
+    "code": "missing_prompt",
+    "message": "Prompt is required",
+    "details": {
+      "field": "prompt"
+    }
+  }
+}
+```
+
+#### `prompt_too_long`
+```json
+{
+  "error": {
+    "code": "prompt_too_long",
+    "message": "Prompt exceeds maximum length of 100,000 characters",
+    "details": {
+      "field": "prompt",
+      "max_length": 100000,
+      "actual_length": 150000
+    }
+  }
+}
+```
+
+#### `invalid_cost`
+```json
+{
+  "error": {
+    "code": "invalid_cost",
+    "message": "max_cost_usd must be greater than 0",
+    "details": {
+      "field": "constraints.max_cost_usd",
+      "value": -0.01
+    }
+  }
+}
+```
+
+#### `invalid_capability`
+```json
+{
+  "error": {
+    "code": "invalid_capability",
+    "message": "Unknown capability 'magic_generation'",
+    "details": {
+      "field": "constraints.required_capabilities",
+      "invalid_value": "magic_generation",
+      "allowed_values": [
+        "text_generation",
+        "code_generation",
+        "reasoning",
+        "instruction_following",
+        "long_context",
+        "multimodal"
+      ]
+    }
+  }
+}
+```
+
+### 401 Unauthorized
+
+#### `invalid_api_key`
+```json
+{
+  "error": {
+    "code": "invalid_api_key",
+    "message": "Invalid API key provided"
+  }
+}
+```
+
+#### `missing_auth_header`
+```json
+{
+  "error": {
+    "code": "missing_auth_header",
+    "message": "Authorization header is required"
+  }
+}
+```
+
+### 403 Forbidden
+
+#### `tenant_mismatch`
+```json
+{
+  "error": {
+    "code": "tenant_mismatch",
+    "message": "You do not have access to this resource",
+    "details": {
+      "reason": "tenant_mismatch"
+    }
+  }
+}
+```
+
+#### `insufficient_permissions`
+```json
+{
+  "error": {
+    "code": "insufficient_permissions",
+    "message": "Your API key does not have permission to perform this action",
+    "details": {
+      "required_permission": "write:routing_decisions"
+    }
+  }
+}
+```
+
+### 404 Not Found
+
+#### `decision_not_found`
+```json
+{
+  "error": {
+    "code": "decision_not_found",
+    "message": "Routing decision not found",
+    "details": {
+      "decision_id": "550e8400-e29b-41d4-a716-446655440000"
+    }
+  }
+}
+```
+
+### 429 Too Many Requests
+
+#### `rate_limit_exceeded`
+```json
+{
+  "error": {
+    "code": "rate_limit_exceeded",
+    "message": "Rate limit exceeded. Retry after 60 seconds",
+    "retry_after": 60,
+    "details": {
+      "limit": 60,
+      "window": "1 minute",
+      "current": 61
+    }
+  }
+}
+```
+
+### 500 Internal Server Error
+
+#### `internal_error`
+```json
+{
+  "error": {
+    "code": "internal_error",
+    "message": "An internal server error occurred. Please try again later",
+    "details": {
+      "request_id": "req_abc123...",
+      "timestamp": "2025-11-11T15:30:00Z"
+    }
+  }
+}
+```
+
+### 503 Service Unavailable
+
+#### `service_unavailable`
+```json
+{
+  "error": {
+    "code": "service_unavailable",
+    "message": "Service is temporarily unavailable. Please try again later",
+    "retry_after": 300,
+    "details": {
+      "reason": "maintenance"
+    }
+  }
+}
+```
+
+## Error Handling Best Practices
+
+### Retry Logic
+
+```python
+import time
+import requests
+
+def call_pathfinder_with_retry(prompt, max_retries=3):
+    for attempt in range(max_retries):
+        try:
+            response = requests.post(
+                "https://api.pathfinder.ai/v1/routes:decide",
+                headers={"Authorization": f"Bearer {API_KEY}"},
+                json={"prompt": prompt}
+            )
+
+            if response.status_code == 200:
+                return response.json()
+
+            elif response.status_code == 429:
+                # Rate limit - use retry_after from response
+                error = response.json()
+                retry_after = error["error"].get("retry_after", 60)
+                time.sleep(retry_after)
+                continue
+
+            elif response.status_code >= 500:
+                # Server error - exponential backoff
+                time.sleep(2 ** attempt)
+                continue
+
+            else:
+                # Client error - don't retry
+                raise Exception(response.json())
+
+        except requests.exceptions.RequestException:
+            # Network error - retry with backoff
+            time.sleep(2 ** attempt)
+
+    raise Exception("Max retries exceeded")
+```
+
+### Validation Before Sending
+
+```python
+def validate_request(prompt, constraints=None):
+    if not prompt:
+        raise ValueError("Prompt is required")
+
+    if len(prompt) > 100_000:
+        raise ValueError("Prompt too long")
+
+    if constraints:
+        if "max_cost_usd" in constraints and constraints["max_cost_usd"] < 0:
+            raise ValueError("max_cost_usd must be >= 0")
+```
+
+## Next Steps
+
+- [Request Schemas](/docs/api/schemas/request-schemas)
+- [Response Schemas](/docs/api/schemas/response-schemas)
+- [Error Handling Guide](/docs/api/guides/error-handling)
