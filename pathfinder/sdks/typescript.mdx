@@ -1,0 +1,293 @@
+---
+title: "TypeScript SDK"
+description: "Official TypeScript/JavaScript client for Pathfinder AI Router"
+---
+
+## Installation
+
+```bash
+npm install @naivana/ai-router-client
+```
+
+Or with other package managers:
+
+```bash
+yarn add @naivana/ai-router-client
+pnpm add @naivana/ai-router-client
+```
+
+## Quick Start
+
+### Node.js
+
+```typescript
+import { RouterClient } from '@naivana/ai-router-client';
+
+const client = new RouterClient({
+  baseUrl: 'https://api.pathfinder.naivana.io/v1',
+  tenantId: 'your-tenant-id',
+  apiKey: 'sk_live_...',
+});
+
+// Make a routing decision
+const decision = await client.decideRoute({
+  prompt: 'Explain quantum computing in simple terms',
+  maxCostUsd: 0.05,
+});
+
+console.log(`Use ${decision.selectedModel} (${decision.provider})`);
+console.log(`Estimated cost: $${decision.estimatedCostUsd}`);
+console.log(`Reasoning: ${decision.reasoning}`);
+```
+
+### Browser
+
+```html
+<script type="module">
+  import { RouterClient } from '@naivana/ai-router-client';
+
+  const client = new RouterClient({
+    baseUrl: 'https://api.pathfinder.naivana.io/v1',
+    tenantId: 'your-tenant-id',
+    apiKey: 'sk_live_...',
+  });
+
+  const decision = await client.decideRoute({
+    prompt: document.getElementById('promptInput').value,
+  });
+
+  console.log('Selected:', decision.selectedModel);
+</script>
+```
+
+## Privacy-First Design
+
+The SDK implements **client-side SHA-256 hashing**. Raw prompts are **never transmitted** to the server:
+
+```typescript
+// Even with sensitive data...
+const decision = await client.decideRoute({
+  prompt: 'My password is SuperSecret123',
+});
+
+// Only the SHA-256 hash is transmitted:
+// - prompt_hash: "abc123..." (64 hex characters)
+// - prompt_features: { length, estimatedTokens, complexityScore }
+// ❌ Raw prompt is NEVER sent
+```
+
+## Configuration
+
+### Constructor Options
+
+```typescript
+const client = new RouterClient({
+  // Required
+  baseUrl: 'https://api.pathfinder.naivana.io/v1',
+  tenantId: 'your-tenant-id',
+  apiKey: 'sk_live_...',
+
+  // Optional
+  timeout: 30000,        // Request timeout (ms), default: 30000
+  maxRetries: 3,         // Max retry attempts, default: 3
+  retryDelay: 1000,      // Initial retry delay (ms), default: 1000
+  customHeaders: {       // Custom headers for all requests
+    'X-App-Version': '1.0.0',
+  },
+});
+```
+
+### Environment Variables
+
+```typescript
+const client = new RouterClient({
+  baseUrl: process.env.PATHFINDER_API_URL!,
+  tenantId: process.env.PATHFINDER_TENANT_ID!,
+  apiKey: process.env.PATHFINDER_API_KEY!,
+});
+```
+
+## API Reference
+
+### decideRoute()
+
+Make a routing decision for a prompt.
+
+```typescript
+const decision = await client.decideRoute({
+  prompt: 'Write a Python sort function',
+  constraints: ['provider:openai'],      // Optional
+  maxCostUsd: 0.05,                       // Optional
+});
+```
+
+**Parameters:**
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `prompt` | string | Yes | The prompt to route (hashed before sending) |
+| `constraints` | string[] | No | Routing constraints |
+| `maxCostUsd` | number | No | Maximum cost in USD |
+
+**Returns:**
+
+```typescript
+interface RoutingDecision {
+  decisionId: string;        // UUID for this decision
+  selectedModel: string;     // e.g., "gpt-5.1", "claude-sonnet-4-5-20250929"
+  provider: string;          // "openai", "anthropic", "google"
+  confidence: number;        // 0.0 to 1.0
+  estimatedCostUsd: number;  // Estimated cost
+  fallbackModels: string[];  // Alternative models
+  reasoning: string;         // Why this model was selected
+  timestamp: string;         // ISO 8601 timestamp
+}
+```
+
+### getDecision()
+
+Retrieve a routing decision by ID.
+
+```typescript
+const decision = await client.getDecision('550e8400-e29b-41d4-a716-446655440000');
+console.log(decision.promptHash);     // SHA-256 hash only
+console.log(decision.promptFeatures); // { length, complexity, ... }
+```
+
+### listDecisions()
+
+List routing decisions with filtering.
+
+```typescript
+const decisions = await client.listDecisions({
+  limit: 20,
+  provider: 'anthropic',
+  startTime: '2025-01-01T00:00:00Z',
+  endTime: '2025-01-31T23:59:59Z',
+});
+```
+
+### healthCheck()
+
+Check API health status.
+
+```typescript
+const health = await client.healthCheck();
+console.log(health.status); // 'healthy'
+```
+
+## Error Handling
+
+```typescript
+try {
+  const decision = await client.decideRoute({ prompt: 'Test' });
+} catch (error) {
+  if (error.statusCode) {
+    // API error
+    console.error(`API Error ${error.statusCode}:`, error.detail);
+    console.error('Correlation ID:', error.correlationId);
+  } else {
+    // Network error
+    console.error('Network error:', error.message);
+  }
+}
+```
+
+## Real-Time Events
+
+### WebSocket Streaming
+
+Stream training events in real-time:
+
+```typescript
+import { TrainingEventStream, TrainingEventType } from '@naivana/ai-router-client';
+
+const stream = new TrainingEventStream({
+  baseUrl: 'wss://api.pathfinder.naivana.io',
+  runId: 'training-run-123',
+  tenantId: 'your-tenant-id',
+  apiKey: 'sk_live_...',
+});
+
+stream.onEvent((event) => {
+  if (event.type === TrainingEventType.EPOCH_COMPLETE) {
+    console.log(`Epoch ${event.data?.epoch}: Loss=${event.data?.loss}`);
+  }
+});
+
+stream.connect();
+```
+
+### HTTP Polling (fallback)
+
+```typescript
+import { TrainingEventPoller } from '@naivana/ai-router-client';
+
+const poller = new TrainingEventPoller({
+  baseUrl: 'https://api.pathfinder.naivana.io/v1',
+  runId: 'training-run-123',
+  tenantId: 'your-tenant-id',
+  apiKey: 'sk_live_...',
+  pollInterval: 2000, // 2 seconds
+});
+
+poller.onEvent((event) => {
+  console.log('Training event:', event);
+});
+
+poller.start();
+```
+
+## Advanced Usage
+
+### Correlation IDs
+
+Correlation IDs are automatically generated for distributed tracing:
+
+```typescript
+const decision = await client.decideRoute({ prompt: 'Test' });
+const detail = await client.getDecision(decision.decisionId);
+console.log('Correlation ID:', detail.correlationId);
+```
+
+### Retry Configuration
+
+```typescript
+const client = new RouterClient({
+  baseUrl: 'https://api.pathfinder.naivana.io/v1',
+  tenantId: 'your-tenant-id',
+  apiKey: 'sk_live_...',
+  timeout: 60000,      // 60 seconds
+  maxRetries: 5,       // Retry up to 5 times
+  retryDelay: 2000,    // Start with 2 second delay (exponential backoff)
+});
+```
+
+## Compatibility
+
+- **Node.js**: 18.0.0 or higher
+- **Browsers**: Modern browsers with Web Crypto API
+  - Chrome 60+
+  - Firefox 57+
+  - Safari 11+
+  - Edge 79+
+
+## TypeScript Types
+
+Full TypeScript definitions are included:
+
+```typescript
+import type {
+  RouterClientConfig,
+  DecideRouteRequest,
+  RoutingDecision,
+  RoutingDecisionDetail,
+  HealthResponse,
+} from '@naivana/ai-router-client';
+```
+
+## Next Steps
+
+- [Python SDK](/docs/sdks/python)
+- [CLI Tool](/docs/sdks/cli)
+- [API Reference](/docs/api/endpoints/routing-decision)

@@ -1,0 +1,294 @@
+---
+title: "Routing Strategies"
+description: "Control cost vs performance trade-offs in your routing decisions"
+---
+
+## Overview
+
+Pathfinder routes prompts to the optimal LLM based on your requirements. By default, routing is **cost-optimized** - selecting the most affordable model that can handle your task. You can override this behavior to prioritize quality when needed.
+
+## Default Behavior: Cost-Optimized
+
+When you send a request without constraints, Pathfinder:
+
+1. Analyzes your prompt to determine required capabilities
+2. Selects the **lowest-cost model** that meets those requirements
+3. Returns fallback models in case the primary fails
+
+```bash
+# Default: Cost-optimized routing
+curl -X POST https://api.pathfinder.naivana.io/v1/routes:decide \
+  -H "Authorization: Bearer sk_live_abc123..." \
+  -H "Content-Type: application/json" \
+  -d '{"prompt": "Translate hello to Spanish"}'
+```
+
+**Result**: Routes to an efficient model like Claude 4.5 Haiku, GPT-5.1 Mini, or Gemini 3 Flash.
+
+## Override for Quality
+
+When quality matters more than cost, use these strategies:
+
+### 1. Set a Higher Cost Budget
+
+Allow more expensive models by increasing `max_cost_usd`:
+
+```json
+{
+  "prompt": "Write a detailed analysis of market trends",
+  "max_cost_usd": 0.10
+}
+```
+
+### 2. Use the Quality-First Policy
+
+Request the `quality_first` policy:
+
+```json
+{
+  "prompt": "Review this legal contract for issues",
+  "policy_name": "quality_first"
+}
+```
+
+### 3. Constrain to Premium Providers
+
+Force routing to specific providers known for quality:
+
+```json
+{
+  "prompt": "Generate production-ready code",
+  "constraints": ["provider:anthropic"]
+}
+```
+
+## Constraint Reference
+
+### Provider Constraints
+
+Limit routing to specific providers:
+
+| Constraint | Effect |
+|------------|--------|
+| `provider:openai` | Only OpenAI models (GPT-5.1, GPT-5.1 Mini) |
+| `provider:anthropic` | Only Anthropic models (Claude 4.5 Opus/Sonnet/Haiku) |
+| `provider:google` | Only Google models (Gemini 3 Pro/Flash) |
+| `no-openai` | Exclude OpenAI |
+| `no-anthropic` | Exclude Anthropic |
+
+### Model Constraints
+
+Target specific model families:
+
+| Constraint | Effect |
+|------------|--------|
+| `only-gpt5` | Only GPT-5.x class models |
+| `only-claude` | Only Claude 4.5 models |
+| `only-gemini` | Only Gemini 3 models |
+| `model:gpt-5.1` | Specific model |
+
+### Capability Constraints
+
+Require specific capabilities:
+
+| Constraint | Effect |
+|------------|--------|
+| `capability:code_generation` | Models optimized for code |
+| `capability:reasoning` | Models with strong reasoning |
+| `capability:long_context` | Models with large context windows |
+
+## Policies Explained
+
+### `cost_optimized` (default)
+
+- Prioritizes lowest cost
+- Meets minimum capability requirements
+- Best for: High-volume, cost-sensitive workloads
+- Typical models: Claude 4.5 Haiku, GPT-5.1 Mini, Gemini 3 Flash
+
+### `quality_first`
+
+- Prioritizes model capability
+- Selects premium models regardless of cost
+- Best for: Critical tasks, complex reasoning, production code
+- Typical models: Claude 4.5 Opus, GPT-5.1, Gemini 3 Pro
+
+### `balanced`
+
+- Balances cost and quality
+- Good middle-ground option
+- Best for: General-purpose applications
+- Typical models: Claude 4.5 Sonnet, GPT-5.1, Gemini 3 Pro
+
+## Use Case Examples
+
+### High-Volume Customer Support
+
+Minimize costs while handling simple queries:
+
+```python
+# Default cost-optimized routing for simple queries
+decision = pathfinder.decide(
+    prompt=customer_query,
+    max_cost_usd=0.01  # Strict budget
+)
+# Routes to: Claude 4.5 Haiku or GPT-5.1 Mini
+```
+
+### Code Generation
+
+Ensure high-quality code output:
+
+```python
+# Quality-first for production code
+decision = pathfinder.decide(
+    prompt=f"Write a production-ready {language} function: {spec}",
+    policy_name="quality_first",
+    constraints=["capability:code_generation"]
+)
+# Routes to: Claude 4.5 Opus or GPT-5.1
+```
+
+### Legal/Compliance Review
+
+Maximum accuracy for sensitive content:
+
+```python
+# Premium models only for legal review
+decision = pathfinder.decide(
+    prompt=f"Review this contract: {contract_text}",
+    policy_name="quality_first",
+    max_cost_usd=1.00,  # Higher budget allowed
+    constraints=["provider:anthropic"]  # Known for safety
+)
+# Routes to: Claude 4.5 Opus
+```
+
+### Multi-Language Translation
+
+Cost-effective for simple tasks:
+
+```python
+# Simple translation - default routing is fine
+decision = pathfinder.decide(
+    prompt=f"Translate to {target_language}: {text}"
+)
+# Routes to: Claude 4.5 Haiku or Gemini 3 Flash
+```
+
+### Research Summarization
+
+Balance quality and cost for medium complexity:
+
+```python
+# Balanced policy for research tasks
+decision = pathfinder.decide(
+    prompt=f"Summarize this research paper: {paper_abstract}",
+    policy_name="balanced"
+)
+# Routes to: Claude 4.5 Sonnet or GPT-5.1
+```
+
+## Supported Models (November 2025)
+
+### OpenAI
+| Model | Best For | Cost Tier |
+|-------|----------|-----------|
+| `gpt-5.1` | Complex reasoning, code generation | Premium |
+| `gpt-5.1-mini` | Fast responses, simple tasks | Budget |
+
+### Anthropic
+| Model | Best For | Cost Tier |
+|-------|----------|-----------|
+| `claude-opus-4-5-20250805` | Highest quality, complex tasks | Premium |
+| `claude-sonnet-4-5-20250929` | Balanced quality/cost | Standard |
+| `claude-haiku-4-5-20251001` | Fast, cost-effective | Budget |
+
+### Google
+| Model | Best For | Cost Tier |
+|-------|----------|-----------|
+| `gemini-3-pro` | Multimodal, long context | Premium |
+| `gemini-3-flash` | Fast responses | Budget |
+
+### Using Older Models
+
+You can still route to older models using explicit constraints:
+
+```json
+{
+  "prompt": "Your prompt here",
+  "constraints": ["model:gpt-4-turbo"]
+}
+```
+
+## Cost Comparison
+
+Here's how routing strategies affect cost for a typical request:
+
+| Strategy | Typical Model | Cost per 1K tokens |
+|----------|---------------|-------------------|
+| `cost_optimized` | Claude 4.5 Haiku / GPT-5.1 Mini | $0.00025 - $0.0005 |
+| `balanced` | Claude 4.5 Sonnet / GPT-5.1 | $0.003 - $0.005 |
+| `quality_first` | Claude 4.5 Opus / GPT-5.1 | $0.015 - $0.06 |
+
+**Example**: A 500-token prompt with a 1000-token response:
+- Cost-optimized: ~$0.0005
+- Quality-first: ~$0.05
+
+That's a **100x difference** - choose wisely based on your needs.
+
+## Best Practices
+
+### 1. Start Cost-Optimized
+
+Begin with default routing and only upgrade when needed:
+
+```python
+# Start simple
+decision = pathfinder.decide(prompt=user_input)
+
+# If quality issues arise, upgrade specific tasks
+if is_critical_task(user_input):
+    decision = pathfinder.decide(
+        prompt=user_input,
+        policy_name="quality_first"
+    )
+```
+
+### 2. Use Constraints Sparingly
+
+Constraints reduce routing flexibility. Only use when necessary:
+
+```python
+# Avoid: Over-constraining
+decision = pathfinder.decide(
+    prompt="Hello",
+    constraints=["provider:anthropic", "model:claude-opus-4-5-20250805"]
+)
+
+# Better: Let the router optimize
+decision = pathfinder.decide(
+    prompt="Hello"
+)
+```
+
+### 3. Submit Feedback
+
+Help improve routing by submitting feedback on every request:
+
+```python
+# Always submit feedback
+pathfinder.submit_feedback(
+    decision_id=decision['decision_id'],
+    actual_latency_ms=latency,
+    actual_cost_usd=cost,
+    actual_tokens_used=tokens,
+    completion_success=True
+)
+```
+
+## Next Steps
+
+- [API Endpoints](/docs/api/endpoints/index)
+- [Submit Feedback](/docs/api/endpoints/feedback)
+- [Authentication](/docs/api/getting-started/authentication)

@@ -1,0 +1,347 @@
+---
+title: "CLI Tool"
+description: "Command-line interface for Pathfinder AI Router"
+---
+
+## Installation
+
+```bash
+pip install ai-router-cli
+```
+
+Or with UV:
+
+```bash
+uv tool install ai-router-cli
+```
+
+## Quick Start
+
+### 1. Initialize Configuration
+
+```bash
+router config init \
+  --tenant-id your-tenant-id \
+  --api-key sk_live_...
+```
+
+For production with TLS:
+
+```bash
+router config init \
+  --host api.pathfinder.naivana.io \
+  --tls \
+  --tenant-id your-tenant-id \
+  --api-key sk_live_...
+```
+
+### 2. Check Service Health
+
+```bash
+router health
+```
+
+### 3. Route a Prompt
+
+```bash
+router route decide "Explain quantum computing"
+```
+
+## Configuration
+
+### Configuration File
+
+The CLI stores configuration in `~/.router/config.toml`:
+
+```toml
+host = "api.pathfinder.naivana.io"
+port = 50051
+tenant_id = "your-tenant-id"
+api_key = "sk_live_..."
+timeout = 30.0
+use_tls = true
+```
+
+### Configuration Commands
+
+```bash
+# Initialize config
+router config init --tenant-id TENANT --api-key KEY
+
+# Show current config
+router config show
+
+# Show config with secrets
+router config show --show-secrets
+
+# Update a setting
+router config set host api.pathfinder.naivana.io
+router config set timeout 60
+router config set tls true
+
+# Show config file path
+router config path
+```
+
+### Environment Variables
+
+Override config values with environment variables:
+
+```bash
+export ROUTER_HOST=api.pathfinder.naivana.io
+export ROUTER_PORT=50051
+export ROUTER_TENANT_ID=your-tenant
+export ROUTER_API_KEY=sk_live_...
+export ROUTER_USE_TLS=true
+
+router route decide "Your prompt"
+```
+
+## Routing Commands
+
+### Basic Routing
+
+```bash
+# Route a single prompt
+router route decide "Your prompt here"
+
+# With cost constraint
+router route decide "Your prompt" --max-cost 0.01
+
+# With provider constraint
+router route decide "Your prompt" --constraint provider:openai
+
+# Multiple constraints
+router route decide "Your prompt" \
+  --constraint provider:anthropic \
+  --constraint capability:code_generation \
+  --max-cost 0.05
+```
+
+### Output Formats
+
+```bash
+# Table format (default)
+router route decide "Your prompt"
+
+# JSON output
+router route decide "Your prompt" --format json
+
+# CSV output
+router route decide "Your prompt" --format csv
+```
+
+### Table Output Example
+
+```
+                       Routing Decision
+┏━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
+┃ Field            ┃ Value                           ┃
+┡━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┩
+│ Decision ID      │ 550e8400-e29b...                │
+│ Model            │ gpt-5.1                         │
+│ Provider         │ openai                          │
+│ Confidence       │ 92.5%                           │
+│ Estimated Cost   │ $0.0015                         │
+│ Estimated Latency│ 120ms                           │
+│ Policy           │ balanced                        │
+│ Fallbacks        │ claude-sonnet-4-5, gemini-3-pro │
+│ Created At       │ 2025-11-25 10:30:45             │
+└──────────────────┴─────────────────────────────────┘
+```
+
+### JSON Output Example
+
+```json
+{
+  "decision_id": "550e8400-e29b-41d4-a716-446655440000",
+  "selected_model": "gpt-5.1",
+  "provider": "openai",
+  "confidence": 0.925,
+  "estimated_cost": 0.0015,
+  "estimated_latency_ms": 120,
+  "policy_name": "balanced",
+  "fallback_models": ["claude-sonnet-4-5-20250929", "gemini-3-pro"],
+  "created_at": "2025-11-25T10:30:45"
+}
+```
+
+## Batch Processing
+
+Process multiple prompts from a file:
+
+```bash
+# Create prompts file
+cat > prompts.txt <<EOF
+Explain quantum computing
+Write a Python function to sort a list
+Summarize the history of AI
+EOF
+
+# Route all prompts
+router route batch prompts.txt
+
+# With output file
+router route batch prompts.txt --output results.json
+
+# With constraints
+router route batch prompts.txt \
+  --max-cost 0.01 \
+  --format csv \
+  --output results.csv
+```
+
+## Health & Info Commands
+
+```bash
+# Check service health
+router health
+
+# Show service info
+router info
+
+# Show CLI version
+router version
+```
+
+## Privacy Guarantee
+
+The CLI uses **client-side SHA-256 hashing**:
+
+```bash
+# What happens internally
+router route decide "My secret prompt"
+
+# 1. Prompt is hashed locally: sha256("My secret prompt") → "a1b2c3..."
+# 2. Only hash and features sent to server
+# 3. Raw prompt NEVER leaves your machine
+```
+
+## Advanced Usage
+
+### With Correlation ID
+
+```bash
+router route decide "Your prompt" --correlation-id abc-123
+```
+
+### With Metadata Labels
+
+```bash
+router route decide "Your prompt" \
+  --label env=production \
+  --label user=alice
+```
+
+## CI/CD Integration
+
+### GitHub Actions
+
+```yaml
+name: AI Model Selection
+on: [push]
+
+jobs:
+  route:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Install CLI
+        run: pip install ai-router-cli
+
+      - name: Configure Router
+        env:
+          ROUTER_TENANT_ID: ${{ secrets.ROUTER_TENANT_ID }}
+          ROUTER_API_KEY: ${{ secrets.ROUTER_API_KEY }}
+        run: |
+          router config init \
+            --host api.pathfinder.naivana.io \
+            --tls \
+            --tenant-id "$ROUTER_TENANT_ID" \
+            --api-key "$ROUTER_API_KEY"
+
+      - name: Route Prompts
+        run: |
+          router route decide "Generate unit tests" \
+            --max-cost 0.01 \
+            --format json > routing.json
+
+      - name: Process Results
+        run: |
+          MODEL=$(jq -r '.selected_model' routing.json)
+          echo "Selected model: $MODEL"
+```
+
+### Shell Script Integration
+
+```bash
+#!/bin/bash
+# Route prompts and process results
+
+RESULT=$(router route decide "Generate SQL query" --format json)
+MODEL=$(echo "$RESULT" | jq -r '.selected_model')
+COST=$(echo "$RESULT" | jq -r '.estimated_cost')
+
+echo "Using model: $MODEL (cost: $COST)"
+
+# Make decision based on cost
+if (( $(echo "$COST > 0.01" | bc -l) )); then
+  echo "Warning: High cost routing"
+fi
+```
+
+## Troubleshooting
+
+### Config Not Found
+
+```
+Error: Config not found at ~/.router/config.toml
+Run 'router config init' to create a config file.
+```
+
+**Solution**: Initialize configuration:
+
+```bash
+router config init --tenant-id YOUR_TENANT --api-key YOUR_KEY
+```
+
+### Connection Refused
+
+```
+Error: failed to connect to all addresses
+```
+
+**Solution**: Check service status and configuration:
+
+```bash
+router health
+router config show
+```
+
+### Authentication Error
+
+```
+Error: UNAUTHENTICATED
+```
+
+**Solution**: Verify API key:
+
+```bash
+router config show --show-secrets
+router config set api_key YOUR_CORRECT_KEY
+```
+
+## Performance
+
+| Metric | Value | Notes |
+|--------|-------|-------|
+| **Mean Latency** | 286ms | Python CLI startup overhead |
+| **SDK Overhead** | 5.5ms | Actual gRPC call time |
+| **Memory Usage** | 35MB | Typical usage |
+
+The CLI overhead is primarily from Python interpreter startup. For high-performance scenarios, use the Python or TypeScript SDK directly.
+
+## Next Steps
+
+- [TypeScript SDK](/docs/sdks/typescript)
+- [Python SDK](/docs/sdks/python)
+- [API Reference](/docs/api/endpoints/routing-decision)

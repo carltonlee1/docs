@@ -1,0 +1,195 @@
+---
+title: "Dashboard Authentication"
+description: "Sign up, log in, and manage your Pathfinder account"
+---
+
+## Overview
+
+The Pathfinder dashboard uses email/password authentication with JWT tokens. This guide covers account management for the web dashboard.
+
+**For API authentication**, see [API Authentication](/docs/api/getting-started/authentication).
+
+## Sign Up
+
+### Create an Account
+
+1. Go to [pathfinder.naivana.io/register](https://pathfinder.naivana.io/register)
+2. Enter your details:
+   - Email address
+   - Password (min 8 characters, must include uppercase, lowercase, and number)
+   - Full name
+   - Organization name (optional)
+3. Click **Create Account**
+
+[Screenshot placeholder: Registration form]
+
+### Organization Creation
+
+If you provide an organization name during signup:
+- A new organization is created
+- You become the organization admin
+- You can invite team members later
+
+If you don't provide an organization name:
+- You can join an existing organization via invite
+- Or create one later in settings
+
+## Log In
+
+### Standard Login
+
+1. Go to [pathfinder.naivana.io/login](https://pathfinder.naivana.io/login)
+2. Enter your email and password
+3. Click **Log In**
+
+[Screenshot placeholder: Login form]
+
+### Session Duration
+
+- Access tokens expire after 30 minutes
+- Refresh tokens extend your session automatically
+- Sessions persist across browser closes
+
+## Account Management
+
+### View Profile
+
+1. Click your avatar in the top-right
+2. Select **Profile**
+
+[Screenshot placeholder: Profile menu]
+
+### Update Profile
+
+1. Go to **Profile**
+2. Update:
+   - Display name
+   - Avatar image
+3. Click **Save Changes**
+
+[Screenshot placeholder: Profile edit form]
+
+### Change Password
+
+1. Go to **Profile** > **Security**
+2. Enter current password
+3. Enter new password (twice)
+4. Click **Update Password**
+
+[Screenshot placeholder: Change password form]
+
+**Password Requirements**:
+- Minimum 8 characters
+- At least one uppercase letter
+- At least one lowercase letter
+- At least one number
+
+## Organization Management
+
+### View Organization
+
+If you're part of an organization:
+
+1. Click your avatar
+2. Select **Organization**
+
+[Screenshot placeholder: Organization page]
+
+### Invite Team Members
+
+(Admin only)
+
+1. Go to **Organization** > **Members**
+2. Click **Invite Member**
+3. Enter their email
+4. Select role:
+   - **Admin** - Full access
+   - **Operator** - Can manage providers and training
+   - **Developer** - Can use playground and view analytics
+   - **Viewer** - Read-only access
+5. Click **Send Invite**
+
+[Screenshot placeholder: Invite member dialog]
+
+### Remove Members
+
+(Admin only)
+
+1. Go to **Organization** > **Members**
+2. Find the member
+3. Click **...** > **Remove**
+4. Confirm removal
+
+## Roles and Permissions
+
+| Permission | Viewer | Developer | Operator | Admin |
+|------------|--------|-----------|----------|-------|
+| View analytics | ✅ | ✅ | ✅ | ✅ |
+| Use playground | ❌ | ✅ | ✅ | ✅ |
+| Manage API keys | ❌ | ✅ | ✅ | ✅ |
+| Configure providers | ❌ | ❌ | ✅ | ✅ |
+| Manage training | ❌ | ❌ | ✅ | ✅ |
+| Manage members | ❌ | ❌ | ❌ | ✅ |
+| Organization settings | ❌ | ❌ | ❌ | ✅ |
+
+## Log Out
+
+1. Click your avatar in the top-right
+2. Select **Log Out**
+
+Your session will be invalidated immediately.
+
+## Security Best Practices
+
+### Password Security
+
+- Use a unique password for Pathfinder
+- Consider using a password manager
+- Enable two-factor authentication (coming soon)
+
+### Session Security
+
+- Log out from shared computers
+- Review active sessions periodically
+- Report suspicious activity
+
+## Troubleshooting
+
+### Forgot Password
+
+1. Go to [pathfinder.naivana.io/forgot-password](https://pathfinder.naivana.io/forgot-password)
+2. Enter your email
+3. Check your inbox for reset link
+4. Create a new password
+
+### Login Failed
+
+**"Invalid email or password"**
+- Verify email is correct
+- Check caps lock
+- Try password reset
+
+**"Account locked"**
+- Too many failed attempts
+- Wait 15 minutes or contact support
+
+### Session Expired
+
+If you see "Session expired":
+1. Click **Log In Again**
+2. Your work should be preserved
+
+## API Authentication
+
+For programmatic access to Pathfinder, use API keys instead of dashboard authentication.
+
+See [API Authentication](/docs/api/getting-started/authentication) for:
+- Creating API keys
+- Using Bearer tokens
+- Rate limits
+
+## Next Steps
+
+- [Create API Keys](/docs/dashboard/api-keys)
+- [Test in Playground](/docs/dashboard/playground)
+- [API Authentication](/docs/api/getting-started/authentication)

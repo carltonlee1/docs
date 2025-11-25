@@ -1,0 +1,162 @@
+---
+title: "SDK Overview"
+description: "Official client libraries for Pathfinder AI Router"
+---
+
+## Overview
+
+Pathfinder provides official SDKs for TypeScript/JavaScript, Python, and a CLI tool. All SDKs implement **privacy-first design** with client-side prompt hashing.
+
+## Available SDKs
+
+<CardGroup cols={3}>
+  <Card title="TypeScript SDK" icon="js" href="/docs/sdks/typescript">
+    REST client for Node.js and browsers
+  </Card>
+  <Card title="Python SDK" icon="python" href="/docs/sdks/python">
+    Async gRPC client with full type hints
+  </Card>
+  <Card title="CLI Tool" icon="terminal" href="/docs/sdks/cli">
+    Command-line interface for scripting
+  </Card>
+</CardGroup>
+
+## Feature Comparison
+
+| Feature | TypeScript | Python | CLI |
+|---------|------------|--------|-----|
+| **Protocol** | REST | gRPC | gRPC |
+| **Privacy** | SHA-256 hashing | SHA-256 hashing | SHA-256 hashing |
+| **Async** | Promise-based | asyncio | Sync |
+| **Streaming** | WebSocket | gRPC streaming | N/A |
+| **Package** | `@naivana/ai-router-client` | `ai-router-client` | `ai-router-cli` |
+
+## Privacy Guarantee
+
+All SDKs implement **client-side hashing**:
+
+```
+Your Prompt → SHA-256 Hash → Send to Server
+"My secret data..." → "a1b2c3d4..." → Only hash transmitted
+```
+
+**Raw prompts are NEVER sent to the server.**
+
+## Quick Start
+
+### TypeScript
+
+```typescript
+import { RouterClient } from '@naivana/ai-router-client';
+
+const client = new RouterClient({
+  baseUrl: 'https://api.pathfinder.naivana.io/v1',
+  tenantId: 'your-tenant-id',
+  apiKey: 'sk_live_...',
+});
+
+const decision = await client.decideRoute({
+  prompt: 'Write a Python function',
+  maxCostUsd: 0.05,
+});
+
+console.log(`Use ${decision.selectedModel}`);
+```
+
+### Python
+
+```python
+from ai_router_client import RouterClient
+
+async with RouterClient(
+    host="api.pathfinder.naivana.io",
+    tenant_id="your-tenant-id",
+    api_key="sk_live_...",
+) as client:
+    decision = await client.decide_route(
+        prompt="Write a Python function",
+        max_cost_usd=0.05,
+    )
+    print(f"Use {decision.selected_model}")
+```
+
+### CLI
+
+```bash
+# Configure
+router config init --tenant-id YOUR_TENANT --api-key sk_live_...
+
+# Route a prompt
+router route decide "Write a Python function" --max-cost 0.05
+```
+
+## When to Use Which SDK
+
+### TypeScript SDK
+
+Best for:
+- Web applications (browser + Node.js)
+- Serverless functions (Vercel, Netlify, AWS Lambda)
+- REST API integrations
+- Real-time WebSocket events
+
+### Python SDK
+
+Best for:
+- Backend services
+- Data pipelines
+- Machine learning workflows
+- High-performance gRPC communication
+
+### CLI Tool
+
+Best for:
+- Shell scripts
+- CI/CD pipelines
+- Quick testing
+- Batch processing files
+
+## Installation
+
+### TypeScript
+
+```bash
+npm install @naivana/ai-router-client
+# or
+yarn add @naivana/ai-router-client
+# or
+pnpm add @naivana/ai-router-client
+```
+
+### Python
+
+```bash
+pip install ai-router-client
+# or
+uv add ai-router-client
+```
+
+### CLI
+
+```bash
+pip install ai-router-cli
+# or
+uv tool install ai-router-cli
+```
+
+## Environment Variables
+
+All SDKs support environment variable configuration:
+
+```bash
+export PATHFINDER_API_URL=https://api.pathfinder.naivana.io
+export PATHFINDER_TENANT_ID=your-tenant-id
+export PATHFINDER_API_KEY=sk_live_...
+```
+
+## Next Steps
+
+- [TypeScript SDK Guide](/docs/sdks/typescript)
+- [Python SDK Guide](/docs/sdks/python)
+- [CLI Reference](/docs/sdks/cli)
+- [API Reference](/docs/api/endpoints/index)

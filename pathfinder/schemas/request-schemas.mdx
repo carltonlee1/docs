@@ -10,16 +10,9 @@ description: "Complete reference for request data structures"
 ```json
 {
   "prompt": "string (required, max 100,000 chars)",
-  "constraints": {
-    "max_cost_usd": "float (optional)",
-    "max_latency_ms": "integer (optional)",
-    "required_capabilities": ["string"] (optional)
-  },
-  "context": {
-    "user_id": "string (optional)",
-    "session_id": "string (optional)",
-    "metadata": {} (optional)
-  }
+  "constraints": ["string"] (optional),
+  "max_cost_usd": "float (optional)",
+  "policy_name": "string (optional)"
 }
 ```
 
@@ -32,51 +25,28 @@ description: "Complete reference for request data structures"
 - **Privacy**: Never stored in raw form, only SHA-256 hash
 
 #### `constraints` (optional)
-Optional constraints for routing decisions.
+- **Type**: array of strings
+- **Description**: Routing constraints to apply
+- **Examples**:
+  - `["provider:openai"]` - Route only to OpenAI models
+  - `["only-gpt4"]` - Restrict to GPT-4 models
+  - `["no-anthropic"]` - Exclude Anthropic models
+  - `["capability:code_generation"]` - Require code generation capability
 
-##### `constraints.max_cost_usd` (optional)
+#### `max_cost_usd` (optional)
 - **Type**: float
 - **Min**: 0.0
-- **Description**: Maximum acceptable cost in USD
+- **Default**: 0.01 (1 cent) if not specified
+- **Description**: Maximum acceptable cost in USD per request
 - **Example**: 0.05
 
-##### `constraints.max_latency_ms` (optional)
-- **Type**: integer
-- **Min**: 0
-- **Description**: Maximum acceptable latency in milliseconds
-- **Example**: 5000
-
-##### `constraints.required_capabilities` (optional)
-- **Type**: array of strings
-- **Description**: Required model capabilities
+#### `policy_name` (optional)
+- **Type**: string
+- **Description**: Specific routing policy to use
 - **Allowed values**:
-  - `text_generation`
-  - `code_generation`
-  - `reasoning`
-  - `instruction_following`
-  - `long_context`
-  - `multimodal`
-
-#### `context` (optional)
-Optional context for analytics and debugging.
-
-##### `context.user_id` (optional)
-- **Type**: string
-- **Max length**: 255
-- **Description**: Your internal user ID
-- **Use case**: Track routing patterns per user
-
-##### `context.session_id` (optional)
-- **Type**: string
-- **Max length**: 255
-- **Description**: Session or conversation ID
-- **Use case**: Group related routing decisions
-
-##### `context.metadata` (optional)
-- **Type**: object
-- **Max size**: 10 KB
-- **Description**: Arbitrary metadata for your use
-- **Use case**: Custom tracking fields
+  - `cost_optimized` - Minimize cost while meeting requirements
+  - `quality_first` - Prioritize model quality over cost
+  - `balanced` - Balance cost and quality (default)
 
 ### Examples
 
@@ -93,20 +63,16 @@ Optional context for analytics and debugging.
 ```json
 {
   "prompt": "Explain quantum computing in simple terms",
-  "constraints": {
-    "max_cost_usd": 0.01
-  }
+  "max_cost_usd": 0.01
 }
 ```
 
-#### Request with Latency Constraint
+#### Request with Provider Constraint
 
 ```json
 {
   "prompt": "Translate 'hello' to Spanish",
-  "constraints": {
-    "max_latency_ms": 1000
-  }
+  "constraints": ["provider:openai"]
 }
 ```
 
@@ -115,29 +81,18 @@ Optional context for analytics and debugging.
 ```json
 {
   "prompt": "Write a binary search algorithm in Rust",
-  "constraints": {
-    "required_capabilities": ["code_generation", "reasoning"]
-  }
+  "constraints": ["capability:code_generation"]
 }
 ```
 
-#### Request with Full Context
+#### Request with Multiple Constraints
 
 ```json
 {
   "prompt": "Generate a product description",
-  "constraints": {
-    "max_cost_usd": 0.05,
-    "max_latency_ms": 3000
-  },
-  "context": {
-    "user_id": "user_123",
-    "session_id": "session_456",
-    "metadata": {
-      "product_id": "prod_789",
-      "category": "electronics"
-    }
-  }
+  "constraints": ["provider:anthropic"],
+  "max_cost_usd": 0.05,
+  "policy_name": "quality_first"
 }
 ```
 
@@ -147,10 +102,9 @@ Optional context for analytics and debugging.
 |-------|------|-----------|
 | `prompt` | Required | `missing_prompt` |
 | `prompt` | Max 100,000 chars | `prompt_too_long` |
-| `constraints.max_cost_usd` | Min 0.0 | `invalid_cost` |
-| `constraints.max_latency_ms` | Min 0 | `invalid_latency` |
-| `constraints.required_capabilities` | Valid capability | `invalid_capability` |
-| `context.metadata` | Max 10 KB | `metadata_too_large` |
+| `prompt` | Cannot be empty/whitespace | `invalid_prompt` |
+| `constraints` | Cannot contain empty strings | `invalid_constraint` |
+| `max_cost_usd` | Min 0.0 | `invalid_cost` |
 
 ## Next Steps
 

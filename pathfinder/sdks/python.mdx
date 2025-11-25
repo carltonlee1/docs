@@ -1,0 +1,327 @@
+---
+title: "Python SDK"
+description: "Official Python gRPC client for Pathfinder AI Router"
+---
+
+## Installation
+
+```bash
+pip install ai-router-client
+```
+
+Or with UV (recommended):
+
+```bash
+uv add ai-router-client
+```
+
+## Quick Start
+
+```python
+import asyncio
+from router_client import RouterClient, RouterClientConfig
+
+async def main():
+    config = RouterClientConfig(
+        host="api.pathfinder.naivana.io",
+        port=50051,
+        tenant_id="your-tenant-id",
+        api_key="sk_live_...",
+        use_tls=True,
+    )
+
+    async with RouterClient(config) as client:
+        decision = await client.decide_route(
+            prompt="Write a Python function to reverse a string",
+            max_cost_usd=0.01,
+        )
+
+        print(f"Selected Model: {decision.selected_model}")
+        print(f"Provider: {decision.provider}")
+        print(f"Confidence: {decision.confidence:.2%}")
+        print(f"Estimated Cost: ${decision.estimated_cost:.4f}")
+
+if __name__ == "__main__":
+    asyncio.run(main())
+```
+
+## Privacy-First Design
+
+The SDK implements **client-side SHA-256 hashing**. Raw prompts are **never transmitted**:
+
+```python
+# What gets sent to the server:
+{
+    "prompt_hash": "a7f8c3e2...",  # SHA-256 hash only
+    "prompt_features": {
+        "length": 47,
+        "estimated_tokens": 12,
+        "complexity_score": 0.65,
+        "task_categories": ["code_generation"]
+    }
+}
+
+# What NEVER gets sent:
+# - Raw prompt text
+```
+
+## Configuration
+
+### RouterClientConfig
+
+```python
+config = RouterClientConfig(
+    # Required
+    host="api.pathfinder.naivana.io",
+    port=50051,
+    tenant_id="your-tenant-id",
+    api_key="sk_live_...",
+
+    # Optional
+    timeout=30.0,           # Request timeout (seconds), default: 30.0
+    max_retries=3,          # Max retry attempts, default: 3
+    retry_backoff=2.0,      # Backoff multiplier, default: 2.0
+    use_tls=True,           # Enable TLS (required for production)
+    client_version="3.0.0", # SDK version
+)
+```
+
+### Environment Variables
+
+```python
+import os
+
+config = RouterClientConfig(
+    host=os.getenv("PATHFINDER_HOST", "api.pathfinder.naivana.io"),
+    port=int(os.getenv("PATHFINDER_PORT", "50051")),
+    tenant_id=os.environ["PATHFINDER_TENANT_ID"],
+    api_key=os.environ["PATHFINDER_API_KEY"],
+    use_tls=True,
+)
+```
+
+## API Reference
+
+### decide_route()
+
+Route a prompt to the optimal model.
+
+```python
+decision = await client.decide_route(
+    prompt="Write a Python function",
+    constraints=["provider:openai"],      # Optional
+    max_cost_usd=0.05,                     # Optional
+    metadata_labels={"env": "production"}, # Optional
+    correlation_id="req-123",              # Optional
+)
+```
+
+**Parameters:**
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `prompt` | str | Yes | The prompt to route (hashed before sending) |
+| `constraints` | list[str] | No | Routing constraints |
+| `max_cost_usd` | float | No | Maximum cost in USD |
+| `metadata_labels` | dict | No | Custom labels for categorization |
+| `correlation_id` | str | No | Custom ID for tracing |
+
+**Returns:**
+
+```python
+class RoutingDecision:
+    selected_model: str      # e.g., "gpt-5.1", "claude-sonnet-4-5-20250929"
+    provider: str            # "openai", "anthropic", "google"
+    confidence: float        # 0.0 to 1.0
+    estimated_cost: float    # USD
+    fallback_models: list[str]
+    reasoning: str | None
+    decision_id: str
+    created_at: datetime
+    policy_name: str
+    estimated_latency_ms: int
+```
+
+### health_check()
+
+Check service health.
+
+```python
+health = await client.health_check()
+print(health.status)  # "HEALTHY"
+```
+
+## Usage Examples
+
+### Basic Routing
+
+```python
+async with RouterClient(config) as client:
+    decision = await client.decide_route("Summarize this article: ...")
+    print(f"Use {decision.selected_model} from {decision.provider}")
+```
+
+### With Cost Constraint
+
+```python
+# Route to cheapest suitable model
+decision = await client.decide_route(
+    prompt="Simple question",
+    max_cost_usd=0.001,
+)
+# Routes to: Claude 4.5 Haiku or GPT-5.1 Mini
+```
+
+### With Provider Constraint
+
+```python
+# Force routing to Anthropic
+decision = await client.decide_route(
+    prompt="Generate code...",
+    constraints=["provider:anthropic"],
+)
+# Routes to: Claude 4.5 Sonnet or Claude 4.5 Opus
+```
+
+### Multiple Constraints
+
+```python
+decision = await client.decide_route(
+    prompt="Long document analysis",
+    constraints=[
+        "provider:anthropic",
+        "capability:long_context",
+    ],
+    max_cost_usd=0.10,
+)
+```
+
+## Error Handling
+
+```python
+import grpc
+
+try:
+    async with RouterClient(config) as client:
+        decision = await client.decide_route(prompt)
+except grpc.RpcError as e:
+    if e.code() == grpc.StatusCode.UNAUTHENTICATED:
+        print("Invalid API key")
+    elif e.code() == grpc.StatusCode.DEADLINE_EXCEEDED:
+        print("Request timeout")
+    else:
+        print(f"gRPC error: {e.details()}")
+except ValueError as e:
+    print(f"Configuration error: {e}")
+```
+
+## Async Context Manager
+
+Always use the async context manager for proper connection handling:
+
+```python
+# Recommended: Context manager
+async with RouterClient(config) as client:
+    decision = await client.decide_route(prompt)
+# Connection automatically closed
+
+# Manual management (if needed)
+client = RouterClient(config)
+await client.connect()
+try:
+    decision = await client.decide_route(prompt)
+finally:
+    await client.close()
+```
+
+## Performance
+
+The Python SDK has been extensively benchmarked:
+
+| Metric | Actual | Target |
+|--------|--------|--------|
+| **p95 Latency** | 5.5ms | <150ms |
+| **p99 Latency** | 13.7ms | <300ms |
+| **Mean Latency** | 3.8ms | - |
+| **Throughput** | 500+ RPS | 500 RPS |
+
+### Performance Characteristics
+
+- **gRPC multiplexing**: Requests share persistent connections
+- **Connection pooling**: Automatic connection reuse
+- **Async efficiency**: Handles thousands of concurrent requests
+- **Memory efficient**: ~10MB typical usage
+
+## Security
+
+### TLS Configuration
+
+Always enable TLS in production:
+
+```python
+config = RouterClientConfig(
+    host="api.pathfinder.naivana.io",
+    port=50051,
+    tenant_id="your-tenant",
+    api_key="sk_live_...",
+    use_tls=True,  # Required for production
+)
+```
+
+### API Key Management
+
+Never hardcode API keys:
+
+```python
+import os
+
+# Good: From environment
+api_key = os.environ["PATHFINDER_API_KEY"]
+
+# Bad: Hardcoded
+api_key = "sk_live_hardcoded"  # NEVER do this!
+```
+
+## Troubleshooting
+
+### Connection Refused
+
+```
+grpc.RpcError: failed to connect to all addresses
+```
+
+**Solution**: Verify the service is running and accessible:
+
+```bash
+# Test connectivity
+nc -zv api.pathfinder.naivana.io 50051
+```
+
+### Authentication Errors
+
+```
+grpc.RpcError: UNAUTHENTICATED
+```
+
+**Solution**: Verify your API key and tenant ID are correct.
+
+### Timeout Errors
+
+```
+grpc.RpcError: DEADLINE_EXCEEDED
+```
+
+**Solution**: Increase timeout:
+
+```python
+config = RouterClientConfig(
+    # ...
+    timeout=60.0,  # 60 seconds
+)
+```
+
+## Next Steps
+
+- [TypeScript SDK](/docs/sdks/typescript)
+- [CLI Tool](/docs/sdks/cli)
+- [API Reference](/docs/api/endpoints/routing-decision)

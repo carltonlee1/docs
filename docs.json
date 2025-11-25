@@ -21,7 +21,7 @@
     "links": [
       {
         "label": "Dashboard",
-        "href": "https://naivana.io/dashboard",
+        "href": "https://pathfinder.naivana.io",
         "icon": "chart-line"
       },
       {
@@ -33,7 +33,7 @@
     "primary": {
       "type": "button",
       "label": "Get API Key",
-      "href": "https://naivana.io/api-keys"
+      "href": "https://pathfinder.naivana.io/api-keys"
     }
   },
   "footer": {
@@ -47,7 +47,7 @@
         "items": [
           {
             "label": "Dashboard",
-            "href": "https://naivana.io/dashboard"
+            "href": "https://pathfinder.naivana.io"
           },
           {
             "label": "Blog",
@@ -94,8 +94,9 @@
             ]
           },
           {
-            "group": "Integration Guides",
+            "group": "Guides",
             "pages": [
+              "pathfinder/guides/routing-strategies",
               "pathfinder/guides/python-integration",
               "pathfinder/guides/nodejs-integration",
               "pathfinder/guides/curl-examples",
@@ -116,11 +117,12 @@
         "tab": "API Reference",
         "groups": [
           {
-            "group": "API Endpoints",
+            "group": "Endpoints",
             "pages": [
               "pathfinder/endpoints/index",
               "pathfinder/endpoints/routing-decision",
-              "pathfinder/endpoints/get-decision"
+              "pathfinder/endpoints/get-decision",
+              "pathfinder/endpoints/feedback"
             ]
           },
           {
@@ -137,6 +139,36 @@
               "pathfinder/api-reference/rest-api",
               "pathfinder/api-reference/grpc-api",
               "pathfinder/api-reference/models-list"
+            ]
+          }
+        ]
+      },
+      {
+        "tab": "SDKs",
+        "groups": [
+          {
+            "group": "Client Libraries",
+            "pages": [
+              "pathfinder/sdks/index",
+              "pathfinder/sdks/typescript",
+              "pathfinder/sdks/python",
+              "pathfinder/sdks/cli"
+            ]
+          }
+        ]
+      },
+      {
+        "tab": "Dashboard",
+        "groups": [
+          {
+            "group": "Dashboard Guide",
+            "pages": [
+              "pathfinder/dashboard/overview",
+              "pathfinder/dashboard/authentication",
+              "pathfinder/dashboard/api-keys",
+              "pathfinder/dashboard/playground",
+              "pathfinder/dashboard/analytics",
+              "pathfinder/dashboard/providers"
             ]
           }
         ]

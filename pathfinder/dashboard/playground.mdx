@@ -1,0 +1,151 @@
+---
+title: "Playground"
+description: "Test routing decisions and compare models in the dashboard"
+---
+
+## Overview
+
+The Playground lets you test routing decisions interactively before integrating with your application. Try different prompts, constraints, and policies to understand how Pathfinder routes requests.
+
+## Accessing the Playground
+
+1. Log in to [pathfinder.naivana.io](https://pathfinder.naivana.io)
+2. Click **Playground** in the sidebar
+
+[Screenshot placeholder: Playground main view]
+
+## Testing a Prompt
+
+### Basic Usage
+
+1. Enter your prompt in the text area
+2. Click **Route**
+3. View the routing decision
+
+[Screenshot placeholder: Prompt input and route button]
+
+### Routing Result
+
+After routing, you'll see:
+
+| Field | Description |
+|-------|-------------|
+| **Selected Model** | The recommended model (e.g., GPT-5.1, Claude 4.5 Sonnet) |
+| **Provider** | OpenAI, Anthropic, or Google |
+| **Confidence** | How confident the router is (0-100%) |
+| **Estimated Cost** | Expected cost for this request |
+| **Reasoning** | Why this model was selected |
+| **Fallbacks** | Alternative models if primary fails |
+
+[Screenshot placeholder: Routing result display]
+
+## Using Constraints
+
+### Cost Constraint
+
+Limit the maximum cost per request:
+
+1. Expand **Constraints** section
+2. Set **Max Cost USD** (e.g., 0.01)
+3. Click **Route**
+
+[Screenshot placeholder: Cost constraint input]
+
+### Provider Constraint
+
+Restrict to specific providers:
+
+1. Expand **Constraints** section
+2. Add constraint: `provider:anthropic`
+3. Click **Route**
+
+[Screenshot placeholder: Provider constraint dropdown]
+
+### Policy Selection
+
+Choose a routing policy:
+
+| Policy | Description |
+|--------|-------------|
+| **cost_optimized** | Minimize cost (default) |
+| **quality_first** | Prioritize model quality |
+| **balanced** | Balance cost and quality |
+
+[Screenshot placeholder: Policy selector]
+
+## Execute Completion
+
+After routing, you can execute the actual LLM completion:
+
+1. Get a routing decision
+2. Click **Execute**
+3. View the model's response
+
+[Screenshot placeholder: Execute button and response]
+
+**Note**: Executing completions uses your configured provider API keys and incurs actual costs.
+
+## Compare Policies
+
+Compare how different policies route the same prompt:
+
+1. Enter your prompt
+2. Click **Compare Policies**
+3. View side-by-side results for each policy
+
+[Screenshot placeholder: Policy comparison view]
+
+| Policy | Model | Cost | Confidence |
+|--------|-------|------|------------|
+| cost_optimized | Claude 4.5 Haiku | $0.0005 | 92% |
+| balanced | Claude 4.5 Sonnet | $0.003 | 95% |
+| quality_first | Claude 4.5 Opus | $0.015 | 98% |
+
+## Sessions
+
+The Playground saves your testing sessions:
+
+### Create a Session
+
+1. Click **New Session**
+2. Name your session (e.g., "Code Generation Tests")
+3. Start testing
+
+### View History
+
+1. Select a session from the dropdown
+2. View all previous prompts and results
+3. Re-run any previous test
+
+[Screenshot placeholder: Session selector and history]
+
+### Export Results
+
+Export session results for analysis:
+
+1. Open a session
+2. Click **Export**
+3. Choose format (JSON or CSV)
+
+## Tips
+
+### Testing Strategies
+
+1. **Start simple**: Test with basic prompts first
+2. **Vary complexity**: Try simple vs. complex prompts
+3. **Test constraints**: Verify cost limits work as expected
+4. **Compare policies**: Understand trade-offs between policies
+
+### Common Test Cases
+
+| Test | Prompt Example | Expected Routing |
+|------|----------------|------------------|
+| Simple query | "What is 2+2?" | Budget model (Haiku/Mini) |
+| Code generation | "Write a Python sort function" | Quality model (Sonnet/GPT-5.1) |
+| Complex reasoning | "Analyze this legal contract..." | Premium model (Opus/GPT-5.1) |
+
+## Next Steps
+
+- [Configure Providers](/docs/dashboard/providers)
+- [View Analytics](/docs/dashboard/analytics)
+- [Routing Strategies Guide](/docs/guides/routing-strategies)

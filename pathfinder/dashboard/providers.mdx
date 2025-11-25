@@ -1,0 +1,189 @@
+---
+title: "Provider Configuration"
+description: "Configure LLM provider API keys and settings"
+---
+
+## Overview
+
+Configure your LLM provider credentials to enable routing to different models. Pathfinder supports OpenAI, Anthropic, and Google.
+
+## Accessing Provider Settings
+
+1. Log in to [pathfinder.naivana.io](https://pathfinder.naivana.io)
+2. Click **Providers** in the sidebar
+
+[Screenshot placeholder: Providers list]
+
+## Supported Providers
+
+| Provider | Models | Required |
+|----------|--------|----------|
+| **OpenAI** | GPT-5.1, GPT-5.1 Mini | API Key |
+| **Anthropic** | Claude 4.5 Opus, Sonnet, Haiku | API Key |
+| **Google** | Gemini 3 Pro, Gemini 3 Flash | API Key |
+
+## Adding a Provider
+
+### OpenAI
+
+1. Click **Add Provider** > **OpenAI**
+2. Enter your OpenAI API key
+3. Click **Save**
+
+[Screenshot placeholder: OpenAI configuration]
+
+**Get your key**: [platform.openai.com/api-keys](https://platform.openai.com/api-keys)
+
+### Anthropic
+
+1. Click **Add Provider** > **Anthropic**
+2. Enter your Anthropic API key
+3. Click **Save**
+
+[Screenshot placeholder: Anthropic configuration]
+
+**Get your key**: [console.anthropic.com](https://console.anthropic.com)
+
+### Google (Gemini)
+
+1. Click **Add Provider** > **Google**
+2. Enter your Google AI API key
+3. Click **Save**
+
+[Screenshot placeholder: Google configuration]
+
+**Get your key**: [aistudio.google.com/apikey](https://aistudio.google.com/apikey)
+
+## Testing Providers
+
+After adding a provider, verify it works:
+
+1. Click **Test Connection**
+2. Wait for the test to complete
+3. Check for green checkmark
+
+[Screenshot placeholder: Provider test results]
+
+| Status | Meaning |
+|--------|---------|
+| ✅ Connected | API key is valid and working |
+| ⚠️ Rate Limited | Key works but hitting rate limits |
+| ❌ Failed | Invalid key or connection error |
+
+## Managing Providers
+
+### Update API Key
+
+1. Click the provider card
+2. Click **Edit**
+3. Enter new API key
+4. Click **Save**
+
+[Screenshot placeholder: Edit provider dialog]
+
+### Remove Provider
+
+1. Click the provider card
+2. Click **Remove**
+3. Confirm removal
+
+**Warning**: Removing a provider disables routing to all its models.
+
+### View Usage
+
+See usage statistics per provider:
+
+1. Click the provider card
+2. View:
+   - Total requests
+   - Cost this month
+   - Error rate
+
+[Screenshot placeholder: Provider usage stats]
+
+## Security
+
+### Key Storage
+
+- API keys are encrypted at rest
+- Keys are never exposed in the UI after initial entry
+- Only the last 4 characters are shown as a hint
+
+### Access Control
+
+- Only organization admins can add/edit providers
+- Operators can view provider status
+- Developers cannot access provider settings
+
+## Model Availability
+
+After configuring providers, these models become available:
+
+### OpenAI (with API key)
+- `gpt-5.1` - Latest flagship model
+- `gpt-5.1-mini` - Fast, cost-effective
+- `gpt-4-turbo` - Previous generation (legacy)
+
+### Anthropic (with API key)
+- `claude-opus-4-5-20250805` - Highest capability
+- `claude-sonnet-4-5-20250929` - Balanced
+- `claude-haiku-4-5-20251001` - Fast and cheap
+
+### Google (with API key)
+- `gemini-3-pro` - Advanced reasoning
+- `gemini-3-flash` - Fast responses
+
+## Fallback Behavior
+
+If a provider is not configured or fails:
+
+1. Pathfinder automatically routes to the next best model
+2. Fallback uses only configured providers
+3. If no providers available, returns error
+
+**Example**: If OpenAI is down, routes to Anthropic:
+```
+Primary: gpt-5.1 (OpenAI) ❌
+Fallback 1: claude-sonnet-4-5-20250929 (Anthropic) ✅
+```
+
+## Troubleshooting
+
+### Invalid API Key
+
+```
+Error: Invalid API key provided
+```
+
+**Solution**:
+1. Verify the key is correct
+2. Check the key hasn't been revoked
+3. Ensure the key has necessary permissions
+
+### Rate Limits
+
+```
+Error: Rate limit exceeded
+```
+
+**Solution**:
+1. Check your provider's rate limits
+2. Consider upgrading your provider plan
+3. Enable fallback to other providers
+
+### Connection Errors
+
+```
+Error: Failed to connect to provider
+```
+
+**Solution**:
+1. Check provider status page
+2. Verify network connectivity
+3. Try again in a few minutes
+
+## Next Steps
+
+- [Test in Playground](/docs/dashboard/playground)
+- [View Analytics](/docs/dashboard/analytics)
+- [Routing Strategies](/docs/guides/routing-strategies)

@@ -14,23 +14,13 @@ description: "Complete reference for response data structures"
   "provider": "string",
   "confidence": "float (0.0-1.0)",
   "estimated_cost_usd": "float",
-  "estimated_latency_ms": "integer",
+  "fallback_models": ["string"],
   "reasoning": "string",
-  "fallback_options": [
-    {
-      "model": "string",
-      "provider": "string",
-      "confidence": "float",
-      "estimated_cost_usd": "float"
-    }
-  ],
-  "prompt_features": {
-    "length": "integer",
-    "complexity": "string",
-    "language": "string",
-    "domain": "string"
-  },
-  "created_at": "string (ISO 8601)"
+  "timestamp": "string (ISO 8601)",
+  "routing_method": "string",
+  "routing_latency_ms": "float (optional)",
+  "heuristic_rule_name": "string (optional)",
+  "heuristic_pattern_type": "string (optional)"
 }
 ```
 
@@ -40,7 +30,7 @@ description: "Complete reference for response data structures"
 - **Type**: string (UUID)
 - **Example**: `"550e8400-e29b-41d4-a716-446655440000"`
 - **Description**: Unique identifier for this routing decision
-- **Use**: Retrieve decision later via `GET /routes:decide/{id}`
+- **Use**: Retrieve decision later via `GET /v1/routes/{id}` or submit feedback
 
 #### `selected_model`
 - **Type**: string
@@ -51,7 +41,7 @@ description: "Complete reference for response data structures"
 #### `provider`
 - **Type**: string
 - **Example**: `"openai"`
-- **Allowed values**: `openai`, `anthropic`, `google`, `meta`, `mistral`, `cohere`
+- **Allowed values**: `openai`, `anthropic`, `google`
 - **Description**: Provider to use for this model
 
 #### `confidence`
@@ -71,100 +61,81 @@ description: "Complete reference for response data structures"
 - **Description**: Estimated cost in USD for this completion
 - **Note**: Actual cost may vary based on actual token usage
 
-#### `estimated_latency_ms`
-- **Type**: integer
-- **Example**: `1500`
-- **Description**: Estimated latency in milliseconds
-- **Note**: Based on provider p95 latency
+#### `fallback_models`
+- **Type**: array of strings
+- **Example**: `["gpt-4", "claude-3-opus"]`
+- **Description**: Alternative model IDs in priority order
+- **Use**: Implement automatic failover logic if primary model fails
 
 #### `reasoning`
 - **Type**: string
 - **Example**: `"GPT-4 Turbo selected for code generation task with high quality requirements"`
 - **Description**: Human-readable explanation of why this model was selected
 
-#### `fallback_options`
-- **Type**: array of objects
-- **Description**: Alternative models if primary fails
-- **Use**: Implement automatic failover logic
-
-Each fallback option contains:
-- `model`: Model ID
-- `provider`: Provider name
-- `confidence`: Confidence score
-- `estimated_cost_usd`: Estimated cost
-
-#### `prompt_features`
-- **Type**: object
-- **Description**: Extracted features from the prompt (privacy-safe)
-
-Fields:
-- `length`: Character count
-- `complexity`: `low`, `medium`, `high`
-- `language`: ISO 639-1 code (e.g., `en`)
-- `domain`: Task domain (e.g., `code_generation`, `creative_writing`)
-
-#### `created_at`
+#### `timestamp`
 - **Type**: string (ISO 8601)
 - **Example**: `"2025-11-11T15:30:00Z"`
 - **Description**: When this decision was created
 
+#### `routing_method`
+- **Type**: string
+- **Example**: `"heuristic"`
+- **Allowed values**: `heuristic`, `ml`, `policy`
+- **Description**: Method used to make the routing decision
+  - `heuristic`: Fast rule-based matching
+  - `ml`: Machine learning model prediction
+  - `policy`: Policy-based routing
+
+#### `routing_latency_ms`
+- **Type**: float (optional)
+- **Example**: `1.8`
+- **Description**: Time taken to make the routing decision in milliseconds
+
+#### `heuristic_rule_name`
+- **Type**: string (optional)
+- **Example**: `"python_code_requests"`
+- **Description**: Name of the heuristic rule that matched (only when `routing_method` is `heuristic`)
+
+#### `heuristic_pattern_type`
+- **Type**: string (optional)
+- **Example**: `"keyword"`
+- **Description**: Type of pattern that matched (only when `routing_method` is `heuristic`)
+
 ### Example Responses
 
-#### Standard Response
+#### Standard Response (Heuristic Routing)
 
 ```json
 {
   "decision_id": "550e8400-e29b-41d4-a716-446655440000",
-  "selected_model": "gpt-4-turbo-preview",
+  "selected_model": "gpt-5.1",
   "provider": "openai",
   "confidence": 0.95,
   "estimated_cost_usd": 0.015,
-  "estimated_latency_ms": 1500,
-  "reasoning": "GPT-4 Turbo selected for code generation task",
-  "fallback_options": [
-    {
-      "model": "claude-sonnet-4-5-20250929",
-      "provider": "anthropic",
-      "confidence": 0.92,
-      "estimated_cost_usd": 0.018
-    }
-  ],
-  "prompt_features": {
-    "length": 52,
-    "complexity": "medium",
-    "language": "en",
-    "domain": "code_generation"
-  },
-  "created_at": "2025-11-11T15:30:00Z"
+  "fallback_models": ["claude-sonnet-4-5-20250929", "gemini-3-pro"],
+  "reasoning": "Selected GPT-5.1 for optimal cost/quality balance based on prompt complexity",
+  "timestamp": "2025-11-25T15:30:00Z",
+  "routing_method": "heuristic",
+  "routing_latency_ms": 1.8,
+  "heuristic_rule_name": "python_code_requests",
+  "heuristic_pattern_type": "keyword"
 }
 ```
 
-#### Cost-Optimized Response
+#### Cost-Optimized Response (Policy Routing)
 
 ```json
 {
   "decision_id": "660f9511-f39c-52e5-b827-557766551111",
-  "selected_model": "gpt-3.5-turbo",
-  "provider": "openai",
+  "selected_model": "claude-haiku-4-5-20251001",
+  "provider": "anthropic",
   "confidence": 0.88,
   "estimated_cost_usd": 0.002,
-  "estimated_latency_ms": 800,
-  "reasoning": "GPT-3.5 Turbo selected to meet max_cost_usd constraint of 0.01",
-  "fallback_options": [
-    {
-      "model": "claude-haiku-4-5-20251001",
-      "provider": "anthropic",
-      "confidence": 0.85,
-      "estimated_cost_usd": 0.0025
-    }
-  ],
-  "prompt_features": {
-    "length": 32,
-    "complexity": "low",
-    "language": "en",
-    "domain": "text_generation"
-  },
-  "created_at": "2025-11-11T15:35:00Z"
+  "fallback_models": ["gpt-5.1-mini", "gemini-3-flash"],
+  "reasoning": "Claude 4.5 Haiku selected to meet max_cost_usd constraint of 0.01",
+  "timestamp": "2025-11-25T15:35:00Z",
+  "routing_method": "policy",
+  "routing_latency_ms": 2.1
 }
 ```
 

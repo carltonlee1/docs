@@ -1,0 +1,130 @@
+---
+title: "API Keys"
+description: "Create and manage API keys for Pathfinder integration"
+---
+
+## Overview
+
+API keys authenticate your applications with the Pathfinder routing API. Each key is scoped to your organization and can be revoked at any time.
+
+## Creating an API Key
+
+1. Navigate to **API Keys** in the sidebar
+2. Click **Create New Key**
+3. Enter a descriptive name (e.g., "Production Backend", "Development")
+4. Click **Create**
+
+[Screenshot placeholder: Create API key dialog]
+
+**Important**: Copy and save your API key immediately. For security, the full key is only shown once.
+
+## Key Format
+
+API keys follow this format:
+```
+sk_live_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+```
+
+- `sk_` - Prefix indicating a secret key
+- `live_` - Environment (live for production)
+- `xxxx...` - Unique identifier
+
+## Managing Keys
+
+### View All Keys
+
+The API Keys page shows all keys for your organization:
+
+[Screenshot placeholder: API keys list]
+
+| Column | Description |
+|--------|-------------|
+| **Name** | Descriptive name you provided |
+| **Key Hint** | Last 4 characters for identification |
+| **Created** | When the key was created |
+| **Last Used** | Most recent API call with this key |
+| **Status** | Active or Revoked |
+
+### Revoke a Key
+
+To revoke a compromised or unused key:
+
+1. Find the key in the list
+2. Click the **...** menu
+3. Select **Revoke**
+4. Confirm the action
+
+[Screenshot placeholder: Revoke key confirmation]
+
+**Warning**: Revoking a key is immediate and cannot be undone. Any applications using the key will stop working.
+
+### Rotate a Key
+
+To rotate a key without downtime:
+
+1. Create a new key with the same permissions
+2. Update your application to use the new key
+3. Verify the new key works
+4. Revoke the old key
+
+## Best Practices
+
+### Security
+
+- Never commit API keys to version control
+- Use environment variables to store keys
+- Rotate keys periodically (every 90 days recommended)
+- Use separate keys for development and production
+
+### Environment Variables
+
+```bash
+# .env file (never commit this!)
+PATHFINDER_API_KEY=sk_live_abc123...
+```
+
+```python
+import os
+
+api_key = os.environ.get("PATHFINDER_API_KEY")
+```
+
+### Key Naming
+
+Use descriptive names to identify key usage:
+
+| Name | Use Case |
+|------|----------|
+| `production-backend` | Main production API server |
+| `staging-backend` | Staging environment |
+| `local-dev-alice` | Alice's local development |
+| `ci-cd-pipeline` | Automated testing |
+
+## Usage Monitoring
+
+Track API key usage from the dashboard:
+
+1. Click on any key name
+2. View usage statistics:
+   - Total requests
+   - Requests per day/week/month
+   - Error rate
+   - Average latency
+
+[Screenshot placeholder: Key usage statistics]
+
+## Rate Limits
+
+API keys share your organization's rate limits:
+
+| Tier | Requests/second | Requests/day |
+|------|-----------------|--------------|
+| Free | 10 | 1,000 |
+| Pro | 100 | 100,000 |
+| Enterprise | Custom | Custom |
+
+## Next Steps
+
+- [Authentication Guide](/docs/api/getting-started/authentication)
+- [Make Your First Request](/docs/api/getting-started/quickstart)
+- [View Analytics](/docs/dashboard/analytics)
