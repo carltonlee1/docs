@@ -1,97 +1,87 @@
 ---
 title: "Introduction"
-description: "Welcome to the new home for your documentation"
+description: "Intelligent LLM routing service with privacy-first design"
 ---
 
-## Setting up
+## Welcome to Pathfinder
 
-Get your documentation site up and running in minutes.
+Pathfinder is an intelligent API that routes prompts to the optimal language model based on cost, capability, and performance. Instead of choosing a model yourself, send your prompt to Pathfinder and it automatically recommends the best model and provider for your use case.
 
 <Card
-  title="Start here"
+  title="Get Started"
   icon="rocket"
-  href="/quickstart"
+  href="/pathfinder/getting-started/quickstart"
   horizontal
 >
-  Follow our three step quickstart guide.
+  Make your first routing decision in 5 minutes.
 </Card>
 
-## Make it yours
-
-Design a docs site that looks great and empowers your users.
+## Key Benefits
 
 <Columns cols={2}>
   <Card
-    title="Edit locally"
-    icon="pen-to-square"
-    href="/development"
+    title="Cost Optimization"
+    icon="piggy-bank"
   >
-    Edit your docs locally and preview them in real time.
+    Save up to 70% on API costs by routing to cheaper models without sacrificing quality.
   </Card>
   <Card
-    title="Customize your site"
-    icon="palette"
-    href="/essentials/settings"
+    title="Privacy First"
+    icon="shield-halved"
   >
-    Customize the design and colors of your site to match your brand.
-  </Card>
-    <Card
-    title="Set up navigation"
-    icon="map"
-    href="/essentials/navigation"
-  >
-    Organize your docs to help users find what they need and succeed with your product.
+    Your raw prompts are never stored—only anonymized hashes and features.
   </Card>
   <Card
-    title="API documentation"
-    icon="terminal"
-    href="/api-reference/introduction"
+    title="Automatic Failover"
+    icon="arrows-rotate"
   >
-    Auto-generate API documentation from OpenAPI specifications.
+    If your preferred provider is down, Pathfinder routes to a backup automatically.
+  </Card>
+  <Card
+    title="Real-Time Insights"
+    icon="chart-line"
+  >
+    Track which models work best for your use cases with analytics.
   </Card>
 </Columns>
 
-## Create beautiful pages
-
-Everything you need to create world-class documentation.
+## Explore the Docs
 
 <Columns cols={2}>
   <Card
-    title="Write with MDX"
-    icon="pen-fancy"
-    href="/essentials/markdown"
+    title="Quickstart Guide"
+    icon="bolt"
+    href="/pathfinder/getting-started/quickstart"
   >
-    Use MDX to style your docs pages.
+    Get your first routing decision in minutes.
   </Card>
   <Card
-    title="Code samples"
+    title="API Reference"
     icon="code"
-    href="/essentials/code"
+    href="/pathfinder/endpoints/routing-decision"
   >
-    Add sample code to demonstrate how to use your product.
+    Explore the REST and gRPC APIs.
   </Card>
   <Card
-    title="Images"
-    icon="image"
-    href="/essentials/images"
+    title="SDKs"
+    icon="toolbox"
+    href="/pathfinder/sdks/index"
   >
-    Display images and other media.
+    Python, TypeScript, and CLI libraries.
   </Card>
   <Card
-    title="Reusable snippets"
-    icon="recycle"
-    href="/essentials/reusable-snippets"
+    title="Core Concepts"
+    icon="lightbulb"
+    href="/pathfinder/core-concepts/routing-decisions"
   >
-    Write once and reuse across your docs.
+    Learn how routing decisions work.
   </Card>
 </Columns>
 
-## Need inspiration?
+## How It Works
 
-<Card
-  title="See complete examples"
-  icon="stars"
-  href="https://mintlify.com/customers"
->
-  Browse our showcase of exceptional documentation sites.
-</Card>
+```
+1. You send a prompt → 2. Pathfinder analyzes it → 3. Returns best model/provider → 4. You execute with that provider
+```
+
+Pathfinder decides which model to use, but you execute the actual completion with that provider's API.
