@@ -1,0 +1,455 @@
+---
+title: "Routing Policies"
+description: "Fine-grained control over model selection and provider routing"
+---
+
+## Overview
+
+Routing policies give you fine-grained control over how Pathfinder selects models and providers. Use policies to optimize for cost, quality, latency, or specific provider requirements.
+
+Pathfinder supports several routing mechanisms:
+- **Policies**: High-level optimization strategies (`cost_optimized`, `quality_first`, `latency_first`)
+- **Provider preferences**: Prefer or exclude specific providers
+- **Cost constraints**: Maximum cost per request
+- **Capability requirements**: Require specific model capabilities
+
+## Routing Policies
+
+### Cost-Optimized Policy
+
+Selects the cheapest model capable of handling the task.
+
+<CodeGroup>
+
+```python Python
+response = client.chat.completions.create(
+    model="auto",
+    messages=[{"role": "user", "content": "What is 2+2?"}],
+    extra_body={
+        "routing": {"policy": "cost_optimized"}
+    }
+)
+```
+
+```bash cURL
+curl -X POST https://api.pathfinder.naivana.io/v1/chat/completions \
+  -H "Authorization: Bearer pk_live_your-key-here" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "model": "auto",
+    "messages": [{"role": "user", "content": "What is 2+2?"}],
+    "routing": {"policy": "cost_optimized"}
+  }'
+```
+
+</CodeGroup>
+
+**Behavior:**
+- Routes to cheapest capable model
+- Typically selects `gemini-2.5-flash` for simple tasks
+- Cost usually under $0.001 for basic requests
+
+### Quality-First Policy
+
+Prioritizes model capability and output quality over cost.
+
+<CodeGroup>
+
+```python Python
+response = client.chat.completions.create(
+    model="auto",
+    messages=[
+        {"role": "user", "content": "Explain quantum entanglement in detail"}
+    ],
+    extra_body={
+        "routing": {"policy": "quality_first"}
+    }
+)
+```
+
+```bash cURL
+curl -X POST https://api.pathfinder.naivana.io/v1/chat/completions \
+  -H "Authorization: Bearer pk_live_your-key-here" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "model": "auto",
+    "messages": [{"role": "user", "content": "Explain quantum entanglement"}],
+    "routing": {"policy": "quality_first"}
+  }'
+```
+
+</CodeGroup>
+
+**Behavior:**
+- Routes to highest-capability model
+- May select `claude-sonnet-4-5` or `gpt-5.1`
+- Best for complex reasoning or analysis
+
+### Latency-First Policy
+
+Selects the fastest responding model.
+
+<CodeGroup>
+
+```python Python
+response = client.chat.completions.create(
+    model="auto",
+    messages=[{"role": "user", "content": "Capital of France?"}],
+    extra_body={
+        "routing": {"policy": "latency_first"}
+    }
+)
+```
+
+```bash cURL
+curl -X POST https://api.pathfinder.naivana.io/v1/chat/completions \
+  -H "Authorization: Bearer pk_live_your-key-here" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "model": "auto",
+    "messages": [{"role": "user", "content": "Quick question"}],
+    "routing": {"policy": "latency_first"}
+  }'
+```
+
+</CodeGroup>
+
+**Behavior:**
+- Routes to fastest available model
+- Considers current provider latencies
+- Good for real-time applications
+
+## Provider Preferences
+
+### Preferred Providers
+
+Request routing to specific providers:
+
+<CodeGroup>
+
+```python Prefer Anthropic
+# Prefer Anthropic
+response = client.chat.completions.create(
+    model="auto",
+    messages=[{"role": "user", "content": "Hello"}],
+    extra_body={
+        "routing": {"preferred_providers": ["anthropic"]}
+    }
+)
+# Response: pathfinder.provider = "anthropic"
+```
+
+```python Prefer Google
+# Prefer Google
+response = client.chat.completions.create(
+    model="auto",
+    messages=[{"role": "user", "content": "Hello"}],
+    extra_body={
+        "routing": {"preferred_providers": ["google"]}
+    }
+)
+# Response: pathfinder.provider = "google"
+```
+
+```python Prefer OpenAI
+# Prefer OpenAI
+response = client.chat.completions.create(
+    model="auto",
+    messages=[{"role": "user", "content": "Hello"}],
+    extra_body={
+        "routing": {"preferred_providers": ["openai"]}
+    }
+)
+# Response: pathfinder.provider = "openai"
+```
+
+```bash cURL
+curl -X POST https://api.pathfinder.naivana.io/v1/chat/completions \
+  -H "Authorization: Bearer pk_live_your-key-here" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "model": "auto",
+    "messages": [{"role": "user", "content": "Hello"}],
+    "routing": {"preferred_providers": ["anthropic"]}
+  }'
+```
+
+</CodeGroup>
+
+**Supported Providers:**
+- `anthropic` - Claude models
+- `openai` - GPT models
+- `google` - Gemini models
+- `azure` - Azure-hosted models
+
+### Exclude Providers
+
+Prevent routing to specific providers:
+
+<CodeGroup>
+
+```python Exclude Google
+# Exclude Google - routes to anthropic or openai
+response = client.chat.completions.create(
+    model="auto",
+    messages=[{"role": "user", "content": "Hello"}],
+    extra_body={
+        "routing": {"exclude_providers": ["google"]}
+    }
+)
+# Response: pathfinder.provider in ["anthropic", "openai", "azure"]
+```
+
+```python Exclude Anthropic
+# Exclude Anthropic - routes to google or openai
+response = client.chat.completions.create(
+    model="auto",
+    messages=[{"role": "user", "content": "Hello"}],
+    extra_body={
+        "routing": {"exclude_providers": ["anthropic"]}
+    }
+)
+# Response: pathfinder.provider in ["google", "openai", "azure"]
+```
+
+```bash cURL
+curl -X POST https://api.pathfinder.naivana.io/v1/chat/completions \
+  -H "Authorization: Bearer pk_live_your-key-here" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "model": "auto",
+    "messages": [{"role": "user", "content": "Hello"}],
+    "routing": {"exclude_providers": ["google"]}
+  }'
+```
+
+</CodeGroup>
+
+### Exclude Multiple Providers
+
+```python
+# Only allow Google
+response = client.chat.completions.create(
+    model="auto",
+    messages=[{"role": "user", "content": "Hello"}],
+    extra_body={
+        "routing": {"exclude_providers": ["anthropic", "openai", "azure"]}
+    }
+)
+# Response: pathfinder.provider = "google"
+
+# Only allow Anthropic
+response = client.chat.completions.create(
+    model="auto",
+    messages=[{"role": "user", "content": "Hello"}],
+    extra_body={
+        "routing": {"exclude_providers": ["openai", "google"]}
+    }
+)
+# Response: pathfinder.provider = "anthropic"
+```
+
+### Combining Preferences and Exclusions
+
+When both are specified, exclusions take precedence:
+
+```python
+# Prefer google and anthropic, but exclude google
+# Result: routes to anthropic
+response = client.chat.completions.create(
+    model="auto",
+    messages=[{"role": "user", "content": "Hello"}],
+    extra_body={
+        "routing": {
+            "preferred_providers": ["google", "anthropic"],
+            "exclude_providers": ["google"]
+        }
+    }
+)
+# Response: pathfinder.provider = "anthropic"
+```
+
+## Cost Constraints
+
+### Maximum Cost Per Request
+
+Set a hard limit on request cost:
+
+<CodeGroup>
+
+```python $0.002 Limit
+# Strict $0.002 limit - only cheapest models
+response = client.chat.completions.create(
+    model="auto",
+    messages=[{"role": "user", "content": "Hello"}],
+    extra_body={
+        "routing": {"max_cost_usd": 0.002}
+    }
+)
+# Response: pathfinder.cost_usd <= 0.002
+```
+
+```python $0.01 Limit
+# $0.01 limit - allows more models
+response = client.chat.completions.create(
+    model="auto",
+    messages=[{"role": "user", "content": "Hello"}],
+    extra_body={
+        "routing": {"max_cost_usd": 0.01}
+    }
+)
+# Response: pathfinder.cost_usd <= 0.01
+```
+
+```python $0.05 Limit
+# $0.05 limit - allows premium models for longer prompts
+response = client.chat.completions.create(
+    model="auto",
+    messages=[{"role": "user", "content": "Explain quantum computing"}],
+    extra_body={
+        "routing": {"max_cost_usd": 0.05}
+    }
+)
+# Response: pathfinder.cost_usd <= 0.05
+```
+
+```bash cURL
+curl -X POST https://api.pathfinder.naivana.io/v1/chat/completions \
+  -H "Authorization: Bearer pk_live_your-key-here" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "model": "auto",
+    "messages": [{"role": "user", "content": "Hello"}],
+    "routing": {"max_cost_usd": 0.005}
+  }'
+```
+
+</CodeGroup>
+
+### Cost Constraint Guidelines
+
+| Constraint | Allowed Models |
+|------------|----------------|
+| $0.001 | `gemini-2.5-flash` only |
+| $0.005 | `gemini-2.5-flash`, `gemini-3-flash`, `claude-haiku-4-5` |
+| $0.01 | Most models except premium |
+| $0.05 | All models for moderate prompts |
+| $0.10+ | All models including `claude-opus-4-5` |
+
+## Capability Requirements
+
+Request specific model capabilities:
+
+```python
+# Require streaming support
+response = client.chat.completions.create(
+    model="auto",
+    messages=[{"role": "user", "content": "Hello"}],
+    extra_body={
+        "routing": {"require_capabilities": ["streaming"]}
+    }
+)
+
+# Require function calling
+response = client.chat.completions.create(
+    model="auto",
+    messages=[{"role": "user", "content": "Hello"}],
+    extra_body={
+        "routing": {"require_capabilities": ["function_calling"]}
+    }
+)
+```
+
+**Available Capabilities:**
+- `streaming` - Real-time streaming responses
+- `function_calling` - Tool/function calling
+- `vision` - Image understanding
+- `json_mode` - Structured JSON output
+- `extended_thinking` - Deep reasoning mode
+
+## Combining Multiple Options
+
+You can combine policies, preferences, and constraints:
+
+```python
+response = client.chat.completions.create(
+    model="auto",
+    messages=[{"role": "user", "content": "Analyze this data"}],
+    extra_body={
+        "routing": {
+            "policy": "quality_first",
+            "preferred_providers": ["anthropic", "openai"],
+            "exclude_providers": ["google"],
+            "max_cost_usd": 0.10,
+            "require_capabilities": ["streaming"]
+        }
+    }
+)
+```
+
+**Evaluation Order:**
+1. Exclude providers are removed from consideration
+2. Capability requirements filter remaining models
+3. Cost constraint filters further
+4. Policy or preferences determine final selection
+
+## Policy Comparison
+
+| Policy | Cost | Quality | Latency | Use Case |
+|--------|------|---------|---------|----------|
+| `cost_optimized` | Lowest | Good | Varies | High-volume, simple tasks |
+| `quality_first` | Higher | Best | Slower | Complex reasoning, analysis |
+| `latency_first` | Varies | Good | Fastest | Real-time applications |
+
+## JavaScript Examples
+
+```javascript
+// Cost-optimized policy
+const response = await client.chat.completions.create({
+  model: 'auto',
+  messages: [{ role: 'user', content: 'Hello' }],
+  routing: { policy: 'cost_optimized' }
+});
+
+// Prefer Anthropic
+const response2 = await client.chat.completions.create({
+  model: 'auto',
+  messages: [{ role: 'user', content: 'Hello' }],
+  routing: { preferred_providers: ['anthropic'] }
+});
+
+// Cost constraint
+const response3 = await client.chat.completions.create({
+  model: 'auto',
+  messages: [{ role: 'user', content: 'Hello' }],
+  routing: { max_cost_usd: 0.01 }
+});
+```
+
+## Best Practices
+
+1. **Start without policies** - Let Pathfinder's default routing optimize automatically
+2. **Add constraints incrementally** - Only add policies when needed
+3. **Use `cost_optimized` for high volume** - Saves money on simple requests
+4. **Use `quality_first` for critical paths** - Ensures best output for important tasks
+5. **Set `max_cost_usd` for budget control** - Prevents unexpected costs
+6. **Avoid over-constraining** - Too many exclusions may reduce availability
+7. **Monitor routing decisions** - Check `pathfinder` metadata to understand routing behavior
+
+## Response Verification
+
+Always verify routing worked as expected:
+
+```python
+response = client.chat.completions.create(
+    model="auto",
+    messages=[{"role": "user", "content": "Hello"}],
+    extra_body={
+        "routing": {"preferred_providers": ["anthropic"]}
+    }
+)
+
+raw = response.model_dump()
+assert raw["pathfinder"]["provider"] == "anthropic"
+print(f"Cost: ${raw['pathfinder']['cost_usd']:.6f}")
+```

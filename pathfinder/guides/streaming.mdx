@@ -1,0 +1,674 @@
+---
+title: "Streaming Guide"
+description: "Stream responses in real-time with Server-Sent Events (SSE)"
+---
+
+Streaming allows you to receive responses in real-time as they are generated, providing a better user experience for chat interfaces and long-form content generation.
+
+## Enabling Streaming
+
+Set `stream: true` in your request to enable streaming:
+
+```bash
+curl -X POST https://api.dev.pathfinder.naivana.io/v1/chat/completions \
+  -H "Content-Type: application/json" \
+  -H "X-API-Key: your-api-key-here" \
+  -d '{
+    "model": "auto",
+    "messages": [{"role": "user", "content": "Count from 1 to 3"}],
+    "stream": true
+  }'
+```
+
+<Note>
+All Pathfinder-supported models support streaming, including Claude, GPT, and Gemini models.
+</Note>
+
+## SSE Event Format
+
+Streaming responses use Server-Sent Events (SSE). Each event is prefixed with `data: ` and the stream ends with `data: [DONE]`.
+
+### Example Stream Response
+
+```text
+data: {"id":"chatcmpl-abc123","object":"chat.completion.chunk","created":1704067200,"model":"claude-haiku-4-5","choices":[{"index":0,"delta":{"role":"assistant"},"finish_reason":null}]}
+
+data: {"id":"chatcmpl-abc123","object":"chat.completion.chunk","created":1704067200,"model":"claude-haiku-4-5","choices":[{"index":0,"delta":{"content":"1"},"finish_reason":null}]}
+
+data: {"id":"chatcmpl-abc123","object":"chat.completion.chunk","created":1704067200,"model":"claude-haiku-4-5","choices":[{"index":0,"delta":{"content":", "},"finish_reason":null}]}
+
+data: {"id":"chatcmpl-abc123","object":"chat.completion.chunk","created":1704067200,"model":"claude-haiku-4-5","choices":[{"index":0,"delta":{"content":"2"},"finish_reason":null}]}
+
+data: {"id":"chatcmpl-abc123","object":"chat.completion.chunk","created":1704067200,"model":"claude-haiku-4-5","choices":[{"index":0,"delta":{"content":", "},"finish_reason":null}]}
+
+data: {"id":"chatcmpl-abc123","object":"chat.completion.chunk","created":1704067200,"model":"claude-haiku-4-5","choices":[{"index":0,"delta":{"content":"3"},"finish_reason":null}]}
+
+data: {"id":"chatcmpl-abc123","object":"chat.completion.chunk","created":1704067200,"model":"claude-haiku-4-5","choices":[{"index":0,"delta":{},"finish_reason":"stop"}]}
+
+data: [DONE]
+```
+
+## Understanding Delta Chunks
+
+Each chunk contains a `delta` object with incremental content that should be appended to build the complete response.
+
+| Field | Description |
+|-------|-------------|
+| `delta.role` | Present in first chunk, indicates assistant role |
+| `delta.content` | Text fragment to append to the response |
+| `finish_reason` | `null` while streaming, `"stop"` when complete |
+
+## Pathfinder Metadata in Final Chunk
+
+<Info>
+Pathfinder includes routing metadata in the final chunk before `[DONE]`. This metadata provides insights into the routing decision, costs, and latency.
+</Info>
+
+The final chunk includes a `pathfinder` field with routing information:
+
+```json
+{
+  "id": "chatcmpl-abc123",
+  "object": "chat.completion.chunk",
+  "created": 1704067200,
+  "model": "claude-haiku-4-5",
+  "choices": [{
+    "index": 0,
+    "delta": {},
+    "finish_reason": "stop"
+  }],
+  "pathfinder": {
+    "decision_id": "dec_abc123",
+    "provider": "anthropic",
+    "selected_model": "claude-haiku-4-5",
+    "routing_policy": "cost_optimized",
+    "estimated_cost_usd": 0.0015,
+    "actual_cost_usd": 0.0014,
+    "latency_ms": 850
+  }
+}
+```
+
+## Python Example
+
+### Basic Streaming
+
+```python
+import requests
+import json
+
+API_KEY = "your-api-key-here"
+BASE_URL = "https://api.dev.pathfinder.naivana.io"
+
+def stream_chat(messages, model="auto"):
+    """Stream a chat completion response."""
+    response = requests.post(
+        f"{BASE_URL}/v1/chat/completions",
+        headers={
+            "Content-Type": "application/json",
+            "X-API-Key": API_KEY
+        },
+        json={
+            "model": model,
+            "messages": messages,
+            "stream": True
+        },
+        stream=True
+    )
+
+    full_content = ""
+
+    for line in response.iter_lines():
+        if line:
+            line = line.decode('utf-8')
+
+            # Skip empty lines
+            if not line.startswith('data: '):
+                continue
+
+            data = line[6:]  # Remove 'data: ' prefix
+
+            # Check for stream end
+            if data == '[DONE]':
+                break
+
+            try:
+                chunk = json.loads(data)
+                delta = chunk['choices'][0].get('delta', {})
+
+                if 'content' in delta:
+                    content = delta['content']
+                    full_content += content
+                    print(content, end='', flush=True)
+
+                # Check for finish reason and pathfinder metadata
+                if chunk['choices'][0].get('finish_reason') == 'stop':
+                    print()  # New line at end
+
+                    # Extract Pathfinder metadata
+                    if 'pathfinder' in chunk:
+                        metadata = chunk['pathfinder']
+                        print(f"\nRouted to: {metadata['selected_model']}")
+                        print(f"Cost: ${metadata['actual_cost_usd']:.4f}")
+
+            except json.JSONDecodeError:
+                continue
+
+    return full_content
+
+# Usage
+content = stream_chat([{"role": "user", "content": "Count from 1 to 10"}])
+print(f"\nFinal content: {content}")
+```
+
+### Async Python Example
+
+```python
+import httpx
+import json
+import asyncio
+
+async def stream_chat_async(messages, model="auto"):
+    """Stream a chat completion response asynchronously."""
+    async with httpx.AsyncClient() as client:
+        async with client.stream(
+            "POST",
+            f"{BASE_URL}/v1/chat/completions",
+            headers={
+                "Content-Type": "application/json",
+                "X-API-Key": API_KEY
+            },
+            json={
+                "model": model,
+                "messages": messages,
+                "stream": True
+            },
+            timeout=60.0
+        ) as response:
+            full_content = ""
+
+            async for line in response.aiter_lines():
+                if not line.startswith('data: '):
+                    continue
+
+                data = line[6:]
+                if data == '[DONE]':
+                    break
+
+                try:
+                    chunk = json.loads(data)
+                    delta = chunk['choices'][0].get('delta', {})
+
+                    if 'content' in delta:
+                        content = delta['content']
+                        full_content += content
+                        print(content, end='', flush=True)
+
+                except json.JSONDecodeError:
+                    continue
+
+            return full_content
+
+# Usage
+content = await stream_chat_async([{"role": "user", "content": "Hello!"}])
+```
+
+## JavaScript Example
+
+### Node.js Streaming
+
+```javascript
+async function streamChat(messages, model = 'auto') {
+  const response = await fetch('https://api.dev.pathfinder.naivana.io/v1/chat/completions', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'X-API-Key': 'your-api-key-here'
+    },
+    body: JSON.stringify({
+      model,
+      messages,
+      stream: true
+    })
+  });
+
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder();
+  let fullContent = '';
+
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+
+    const chunk = decoder.decode(value);
+    const lines = chunk.split('\n');
+
+    for (const line of lines) {
+      if (!line.startsWith('data: ')) continue;
+
+      const data = line.slice(6);
+      if (data === '[DONE]') continue;
+
+      try {
+        const parsed = JSON.parse(data);
+        const content = parsed.choices[0]?.delta?.content;
+
+        if (content) {
+          fullContent += content;
+          process.stdout.write(content);
+        }
+
+        // Check for Pathfinder metadata
+        if (parsed.pathfinder) {
+          console.log('\n\nRouting Info:', parsed.pathfinder);
+        }
+      } catch (e) {
+        // Skip invalid JSON
+      }
+    }
+  }
+
+  console.log('\n');
+  return fullContent;
+}
+
+// Usage
+const content = await streamChat([
+  { role: 'user', content: 'Count from 1 to 10' }
+]);
+console.log('Final content:', content);
+```
+
+### React Example
+
+```jsx
+import { useState } from 'react';
+
+function ChatStream() {
+  const [content, setContent] = useState('');
+  const [isStreaming, setIsStreaming] = useState(false);
+  const [routingInfo, setRoutingInfo] = useState(null);
+
+  async function sendMessage(userMessage) {
+    setIsStreaming(true);
+    setContent('');
+    setRoutingInfo(null);
+
+    const response = await fetch('https://api.dev.pathfinder.naivana.io/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-API-Key': 'your-api-key-here'
+      },
+      body: JSON.stringify({
+        model: 'auto',
+        messages: [{ role: 'user', content: userMessage }],
+        stream: true
+      })
+    });
+
+    const reader = response.body.getReader();
+    const decoder = new TextDecoder();
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+
+      const chunk = decoder.decode(value);
+      const lines = chunk.split('\n');
+
+      for (const line of lines) {
+        if (!line.startsWith('data: ')) continue;
+
+        const data = line.slice(6);
+        if (data === '[DONE]') continue;
+
+        try {
+          const parsed = JSON.parse(data);
+          const deltaContent = parsed.choices[0]?.delta?.content;
+
+          if (deltaContent) {
+            setContent(prev => prev + deltaContent);
+          }
+
+          // Extract routing metadata
+          if (parsed.pathfinder) {
+            setRoutingInfo(parsed.pathfinder);
+          }
+        } catch (e) {
+          // Skip invalid JSON
+        }
+      }
+    }
+
+    setIsStreaming(false);
+  }
+
+  return (
+    <div>
+      <button onClick={() => sendMessage('Tell me a joke')} disabled={isStreaming}>
+        {isStreaming ? 'Streaming...' : 'Send'}
+      </button>
+      <pre>{content}</pre>
+      {routingInfo && (
+        <div className="routing-info">
+          <p>Model: {routingInfo.selected_model}</p>
+          <p>Cost: ${routingInfo.actual_cost_usd.toFixed(4)}</p>
+          <p>Latency: {routingInfo.latency_ms}ms</p>
+        </div>
+      )}
+    </div>
+  );
+}
+```
+
+## Error Handling
+
+Streaming requests can fail at any point. Implement robust error handling to gracefully recover from failures.
+
+### Python Error Handling
+
+```python
+import requests
+import json
+import time
+
+def stream_with_error_handling(messages, max_retries=3):
+    """Stream with comprehensive error handling."""
+    for attempt in range(max_retries):
+        try:
+            response = requests.post(
+                f"{BASE_URL}/v1/chat/completions",
+                headers={
+                    "Content-Type": "application/json",
+                    "X-API-Key": API_KEY
+                },
+                json={
+                    "model": "auto",
+                    "messages": messages,
+                    "stream": True
+                },
+                stream=True,
+                timeout=60
+            )
+
+            response.raise_for_status()
+
+            full_content = ""
+            for line in response.iter_lines():
+                if line:
+                    line = line.decode('utf-8')
+                    if line.startswith('data: '):
+                        data = line[6:]
+                        if data == '[DONE]':
+                            break
+                        try:
+                            chunk = json.loads(data)
+                            delta = chunk['choices'][0].get('delta', {})
+                            if 'content' in delta:
+                                full_content += delta['content']
+                                print(delta['content'], end='', flush=True)
+                        except json.JSONDecodeError as e:
+                            print(f"\nJSON parse error: {e}")
+
+            return full_content
+
+        except requests.exceptions.Timeout:
+            print(f"\nRequest timed out (attempt {attempt + 1}/{max_retries})")
+            if attempt < max_retries - 1:
+                time.sleep(2 ** attempt)
+        except requests.exceptions.HTTPError as e:
+            print(f"\nHTTP error {e.response.status_code}: {e.response.text}")
+            if e.response.status_code >= 500 and attempt < max_retries - 1:
+                time.sleep(2 ** attempt)
+            else:
+                raise
+        except requests.exceptions.ConnectionError:
+            print(f"\nConnection error (attempt {attempt + 1}/{max_retries})")
+            if attempt < max_retries - 1:
+                time.sleep(2 ** attempt)
+            else:
+                raise
+
+    raise Exception("Max retries exceeded")
+```
+
+### JavaScript Error Handling
+
+```javascript
+async function streamWithErrorHandling(messages, maxRetries = 3) {
+  for (let attempt = 0; attempt < maxRetries; attempt++) {
+    try {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 60000);
+
+      const response = await fetch(
+        'https://api.dev.pathfinder.naivana.io/v1/chat/completions',
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-API-Key': 'your-api-key-here'
+          },
+          body: JSON.stringify({
+            model: 'auto',
+            messages,
+            stream: true
+          }),
+          signal: controller.signal
+        }
+      );
+
+      clearTimeout(timeoutId);
+
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}: ${await response.text()}`);
+      }
+
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
+      let fullContent = '';
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        const chunk = decoder.decode(value);
+        const lines = chunk.split('\n');
+
+        for (const line of lines) {
+          if (!line.startsWith('data: ')) continue;
+
+          const data = line.slice(6);
+          if (data === '[DONE]') continue;
+
+          try {
+            const parsed = JSON.parse(data);
+            const content = parsed.choices[0]?.delta?.content;
+            if (content) fullContent += content;
+          } catch (e) {
+            console.error('JSON parse error:', e);
+          }
+        }
+      }
+
+      return fullContent;
+
+    } catch (error) {
+      console.error(`Attempt ${attempt + 1} failed:`, error.message);
+
+      if (attempt < maxRetries - 1) {
+        const delay = Math.pow(2, attempt) * 1000;
+        await new Promise(resolve => setTimeout(resolve, delay));
+      } else {
+        throw error;
+      }
+    }
+  }
+}
+```
+
+## Stream Termination
+
+The stream ends in one of two ways:
+
+1. **Normal completion**: `data: [DONE]` is sent after the final chunk
+2. **Error**: Connection closes unexpectedly
+
+<Warning>
+Always check for the `[DONE]` marker to know when the response is complete. Don't rely solely on connection closure.
+</Warning>
+
+## Combining with Routing Options
+
+Streaming works seamlessly with all Pathfinder routing options:
+
+```bash
+curl -X POST https://api.dev.pathfinder.naivana.io/v1/chat/completions \
+  -H "Content-Type: application/json" \
+  -H "X-API-Key: your-api-key-here" \
+  -d '{
+    "model": "auto",
+    "messages": [{"role": "user", "content": "Tell me a story"}],
+    "stream": true,
+    "routing": {
+      "policy": "cost_optimized",
+      "preferred_providers": ["anthropic"],
+      "max_cost_usd": 0.01
+    }
+  }'
+```
+
+### Example with Cost Optimization
+
+```python
+def stream_with_routing(messages, max_cost_usd=0.01):
+    """Stream with cost-optimized routing."""
+    response = requests.post(
+        f"{BASE_URL}/v1/chat/completions",
+        headers={
+            "Content-Type": "application/json",
+            "X-API-Key": API_KEY
+        },
+        json={
+            "model": "auto",
+            "messages": messages,
+            "stream": True,
+            "routing": {
+                "policy": "cost_optimized",
+                "max_cost_usd": max_cost_usd
+            }
+        },
+        stream=True
+    )
+
+    # Process stream...
+```
+
+## Supported Models
+
+All Pathfinder-supported models support streaming:
+
+| Provider | Models |
+|----------|--------|
+| Anthropic | claude-haiku-4-5, claude-sonnet-4-5, claude-opus-4-5 |
+| OpenAI | gpt-5.1, gpt-5.2 |
+| Google | gemini-2.5-flash, gemini-2.5-pro, gemini-3-flash, gemini-3-pro |
+
+<Tip>
+Use `"model": "auto"` to let Pathfinder select the best model based on your routing policy and constraints.
+</Tip>
+
+## Best Practices
+
+<AccordionGroup>
+  <Accordion title="Set Appropriate Timeouts">
+    Streaming requests may take longer than regular requests. Set timeouts based on expected response length:
+
+    ```python
+    # Python
+    response = requests.post(url, json=data, stream=True, timeout=60)
+    ```
+
+    ```javascript
+    // JavaScript
+    const controller = new AbortController();
+    setTimeout(() => controller.abort(), 60000);
+    fetch(url, { signal: controller.signal });
+    ```
+  </Accordion>
+
+  <Accordion title="Implement Reconnection Logic">
+    If the stream breaks unexpectedly, implement retry logic with exponential backoff:
+
+    ```python
+    for attempt in range(max_retries):
+        try:
+            # Attempt streaming
+            break
+        except Exception:
+            if attempt < max_retries - 1:
+                time.sleep(2 ** attempt)
+    ```
+  </Accordion>
+
+  <Accordion title="Process Chunks Incrementally">
+    Don't wait for the full response. Process and display chunks as they arrive for better UX:
+
+    ```javascript
+    if (content) {
+      setContent(prev => prev + content);  // Update UI immediately
+    }
+    ```
+  </Accordion>
+
+  <Accordion title="Show UI Feedback">
+    Display a typing indicator or loading state while streaming:
+
+    ```jsx
+    {isStreaming && <TypingIndicator />}
+    ```
+  </Accordion>
+
+  <Accordion title="Support Stream Cancellation">
+    Allow users to cancel long-running streams:
+
+    ```javascript
+    const controller = new AbortController();
+
+    // Start stream
+    fetch(url, { signal: controller.signal });
+
+    // Cancel stream
+    controller.abort();
+    ```
+  </Accordion>
+
+  <Accordion title="Buffer Management">
+    For large streams, consider implementing buffer management to prevent memory issues:
+
+    ```python
+    # Process in chunks instead of accumulating everything
+    for chunk in stream:
+        process_chunk(chunk)  # Process immediately
+        # Don't accumulate unless necessary
+    ```
+  </Accordion>
+</AccordionGroup>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Python Integration" icon="python" href="/pathfinder/guides/python-integration">
+    Complete Python integration guide with examples
+  </Card>
+  <Card title="Node.js Integration" icon="node-js" href="/pathfinder/guides/nodejs-integration">
+    Complete Node.js/TypeScript integration guide
+  </Card>
+  <Card title="Cost Optimization" icon="dollar-sign" href="/pathfinder/guides/cost-optimization">
+    Control costs with routing policies
+  </Card>
+  <Card title="Error Handling" icon="triangle-exclamation" href="/pathfinder/guides/error-handling">
+    Handle errors gracefully
+  </Card>
+</CardGroup>

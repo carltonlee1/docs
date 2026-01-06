@@ -84,6 +84,10 @@
           {
             "group": "Core Concepts",
             "pages": [
+              "pathfinder/core-concepts/auto-routing",
+              "pathfinder/core-concepts/routing-policies",
+              "pathfinder/core-concepts/drop-in-compatibility",
+              "pathfinder/core-concepts/pathfinder-metadata",
               "pathfinder/core-concepts/routing-decisions",
               "pathfinder/core-concepts/privacy-first-design",
               "pathfinder/core-concepts/multi-tenancy",
@@ -97,6 +101,7 @@
               "pathfinder/guides/python-integration",
               "pathfinder/guides/nodejs-integration",
               "pathfinder/guides/curl-examples",
+              "pathfinder/guides/streaming",
               "pathfinder/guides/cost-optimization",
               "pathfinder/guides/error-handling"
             ]
@@ -117,9 +122,15 @@
             "group": "Endpoints",
             "pages": [
               "pathfinder/endpoints/index",
+              "pathfinder/endpoints/chat-completions",
               "pathfinder/endpoints/routing-decision",
               "pathfinder/endpoints/get-decision",
-              "pathfinder/endpoints/feedback"
+              "pathfinder/endpoints/feedback",
+              "pathfinder/endpoints/analytics",
+              "pathfinder/endpoints/get-routing-config",
+              "pathfinder/endpoints/put-routing-config",
+              "pathfinder/endpoints/provider-health",
+              "pathfinder/endpoints/cost-analytics"
             ]
           },
           {

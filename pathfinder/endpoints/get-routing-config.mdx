@@ -1,0 +1,176 @@
+---
+title: "GET /api/v1/routing/config"
+description: "Get the current routing configuration for your organization"
+---
+
+## Endpoint
+
+```
+GET https://api.pathfinder.naivana.io/api/v1/routing/config
+```
+
+## Description
+
+Retrieves the current routing configuration for your organization, including the active routing strategy, enabled providers, priorities, and weights.
+
+**Note**: This endpoint requires authentication via JWT token obtained from the dashboard login.
+
+## Request
+
+### Headers
+
+```http
+Authorization: Bearer <jwt_token>
+```
+
+### Authentication
+
+Requires JWT token from dashboard login. See the [Dashboard Authentication](/pathfinder/dashboard/authentication) guide for details.
+
+## Response
+
+### Success Response (200 OK)
+
+```json
+{
+  "organization_id": "550e8400-e29b-41d4-a716-446655440000",
+  "strategy": "priority",
+  "enabled_providers": [
+    {
+      "provider": "anthropic",
+      "priority": 1,
+      "weight": 40,
+      "enabled": true
+    },
+    {
+      "provider": "openai",
+      "priority": 2,
+      "weight": 35,
+      "enabled": true
+    },
+    {
+      "provider": "google",
+      "priority": 3,
+      "weight": 25,
+      "enabled": true
+    }
+  ],
+  "is_custom": false,
+  "last_updated": null
+}
+```
+
+### Response Fields
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `organization_id` | string | Organization UUID |
+| `strategy` | string | Active routing strategy (see Routing Strategies below) |
+| `enabled_providers` | array | List of provider configurations |
+| `is_custom` | boolean | Whether this is a custom configuration |
+| `last_updated` | string | ISO 8601 timestamp of last configuration update (null if never updated) |
+
+### Provider Configuration Fields
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `provider` | string | Provider name (anthropic, openai, google, etc.) |
+| `priority` | integer | Priority order (1 = highest priority) |
+| `weight` | integer | Weight for weighted strategies (0-100) |
+| `enabled` | boolean | Whether the provider is enabled |
+
+## Routing Strategies
+
+| Strategy | Tier Required | Description |
+|----------|---------------|-------------|
+| `priority` | Free | Routes requests to providers in priority order, using the next provider if the first fails |
+| `round_robin` | Pro+ | Distributes requests across providers based on configured weights |
+| `cost_optimized` | Pro+ | Automatically selects the provider that minimizes cost while meeting requirements |
+| `least_latency` | Pro+ | Routes to the provider with the lowest latency based on historical performance |
+
+## Error Responses
+
+### 401 Unauthorized
+
+```json
+{
+  "detail": "Missing or invalid JWT token"
+}
+```
+
+### 500 Internal Server Error
+
+```json
+{
+  "detail": "Internal server error"
+}
+```
+
+## Examples
+
+### cURL
+
+```bash
+curl https://api.pathfinder.naivana.io/api/v1/routing/config \
+  -H "Authorization: Bearer $JWT_TOKEN"
+```
+
+### Python
+
+```python
+import requests
+
+# First, login to get JWT token
+login_resp = requests.post(
+    "https://api.pathfinder.naivana.io/api/v1/auth/login",
+    json={"email": "user@example.com", "password": "password"}
+)
+token = login_resp.json()["access_token"]
+
+# Get routing configuration
+response = requests.get(
+    "https://api.pathfinder.naivana.io/api/v1/routing/config",
+    headers={"Authorization": f"Bearer {token}"}
+)
+
+config = response.json()
+print(f"Current strategy: {config['strategy']}")
+print(f"Enabled providers: {len(config['enabled_providers'])}")
+```
+
+### Node.js
+
+```javascript
+// First, login to get JWT token
+const loginResp = await fetch('https://api.pathfinder.naivana.io/api/v1/auth/login', {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({
+    email: 'user@example.com',
+    password: 'password'
+  })
+});
+
+const { access_token } = await loginResp.json();
+
+// Get routing configuration
+const response = await fetch('https://api.pathfinder.naivana.io/api/v1/routing/config', {
+  headers: {
+    'Authorization': `Bearer ${access_token}`
+  }
+});
+
+const config = await response.json();
+console.log(`Current strategy: ${config.strategy}`);
+console.log(`Enabled providers: ${config.enabled_providers.length}`);
+```
+
+## Caching
+
+Configuration data is cached in Redis for 5 minutes. Any configuration updates automatically invalidate the cache.
+
+## Next Steps
+
+- [Update Routing Configuration](/pathfinder/endpoints/put-routing-config)
+- [View Provider Health](/pathfinder/endpoints/provider-health)
+- [Routing Strategies Guide](/pathfinder/guides/routing-strategies)

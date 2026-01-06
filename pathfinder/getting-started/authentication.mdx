@@ -3,112 +3,309 @@ title: "Authentication & API Keys"
 description: "How to authenticate requests and manage API keys securely"
 ---
 
-## Authentication
+## Authentication Methods
 
-All API requests to Pathfinder must include authentication. We use Bearer tokens for security.
+Pathfinder supports two authentication methods depending on your use case:
 
-### Authentication Format
+| Method | Use Case | Header |
+|--------|----------|--------|
+| API Key | Programmatic API access | `X-API-Key` or `Authorization: Bearer` |
+| JWT Token | Dashboard and web apps | `Authorization: Bearer {token}` |
 
-Include your API key in the `Authorization` header of every request:
+## API Key Authentication
 
-```
-Authorization: Bearer sk_live_YOUR_API_KEY
-```
+API keys are the recommended method for server-to-server communication, scripts, and programmatic access to the Pathfinder API.
 
-### Example Request
+### Using X-API-Key Header
 
 ```bash
-curl -X POST https://api.pathfinder.ai/v1/routes:decide \
-  -H "Authorization: Bearer sk_live_abc123def456..." \
+curl -X POST https://api.pathfinder.ai/v1/chat/completions \
   -H "Content-Type: application/json" \
-  -d '{"prompt": "..."}'
+  -H "X-API-Key: pk_live_abc123xyz" \
+  -d '{
+    "model": "auto",
+    "messages": [{"role": "user", "content": "Hello!"}]
+  }'
 ```
 
-## API Key Management
+### Using Authorization Header
 
-### Creating an API Key
+```bash
+curl -X POST https://api.pathfinder.ai/v1/chat/completions \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer pk_live_abc123xyz" \
+  -d '{
+    "model": "auto",
+    "messages": [{"role": "user", "content": "Hello!"}]
+  }'
+```
 
-1. Go to [dashboard.pathfinder.ai](https://dashboard.pathfinder.ai)
-2. Navigate to **API Keys** in the left sidebar
-3. Click **Create New Key**
-4. Give your key a descriptive name (e.g., "Production API", "Development", "Testing")
-5. Click **Create**
-6. **Copy the key immediately** - you won't see it again
+Both methods are equivalent. Use whichever fits your application architecture.
 
-### API Key Formats
+### API Key Prefixes
 
 Pathfinder uses key prefixes to identify environment:
 
-| Prefix | Environment | Use Case |
-|--------|-------------|----------|
-| `sk_live_` | Production | Real API calls, charged to your account |
-| `sk_test_` | Sandbox/Testing | Free testing, no charges, no real routing |
+| Prefix | Environment | Use Case | Example |
+|--------|-------------|----------|---------|
+| `pk_live_` | Production | Real API calls, charged to your account | `pk_live_abc123xyz` |
+| `pk_test_` | Sandbox/Testing | Free testing, no charges, no real routing | `pk_test_xyz789abc` |
 
-### Key Security Best Practices
+## JWT Token Authentication
 
-<Warning>
-Never expose your API keys! They give full access to your account.
-</Warning>
+JWT tokens provide user-specific access control and are used for the Pathfinder dashboard and web applications.
 
-**DO:**
-- ✅ Store keys in environment variables
-- ✅ Use different keys for dev/test/prod
-- ✅ Rotate keys regularly (monthly)
-- ✅ Use short-lived keys when possible
-- ✅ Restrict key permissions by team/project
+### User Registration
 
-**DON'T:**
-- ❌ Commit keys to Git (use `.env` files with `.gitignore`)
-- ❌ Log keys in application logs
-- ❌ Share keys in Slack, email, or messaging
-- ❌ Use the same key for multiple projects
-- ❌ Leave old keys active
+Create a new user account:
 
-### Managing Keys in Your Code
+```bash
+curl -X POST https://api.pathfinder.ai/api/v1/auth/register \
+  -H "Content-Type: application/json" \
+  -d '{
+    "email": "newuser@example.com",
+    "password": "SecurePassword123!",
+    "name": "New User",
+    "organization_name": "My Company"
+  }'
+```
 
-#### Option 1: Environment Variables (Recommended)
+**Response:**
+```json
+{
+  "access_token": "eyJhbGciOiJIUzI1NiIs...",
+  "refresh_token": "eyJhbGciOiJIUzI1NiIs...",
+  "expires_in": 3600,
+  "user": {
+    "id": "usr_new123",
+    "email": "newuser@example.com",
+    "name": "New User",
+    "role": "developer",
+    "organization_id": "org_new789"
+  }
+}
+```
+
+### Login
+
+Authenticate with email and password:
+
+```bash
+curl -X POST https://api.pathfinder.ai/api/v1/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{
+    "email": "user@example.com",
+    "password": "your-password"
+  }'
+```
+
+**Response:**
+```json
+{
+  "access_token": "eyJhbGciOiJIUzI1NiIs...",
+  "refresh_token": "eyJhbGciOiJIUzI1NiIs...",
+  "expires_in": 3600,
+  "user": {
+    "id": "usr_abc123",
+    "email": "user@example.com",
+    "name": "John Doe",
+    "role": "developer",
+    "organization_id": "org_xyz789"
+  }
+}
+```
+
+### Using Access Tokens
+
+Include the access token in the Authorization header for authenticated requests:
+
+```bash
+curl https://api.pathfinder.ai/api/v1/auth/me \
+  -H "Authorization: Bearer eyJhbGciOiJIUzI1NiIs..."
+```
+
+### Token Expiration and Refresh
+
+<Info>
+Access tokens expire after **60 minutes**. Use the refresh token to obtain a new access token without re-authenticating.
+</Info>
+
+```bash
+curl -X POST https://api.pathfinder.ai/api/v1/auth/refresh \
+  -H "Content-Type: application/json" \
+  -d '{
+    "refresh_token": "eyJhbGciOiJIUzI1NiIs..."
+  }'
+```
+
+**Response:**
+```json
+{
+  "access_token": "eyJhbGciOiJIUzI1NiIs...",
+  "expires_in": 3600
+}
+```
+
+### Get Current User Profile
+
+Retrieve the current authenticated user's information:
+
+```bash
+curl https://api.pathfinder.ai/api/v1/auth/me \
+  -H "Authorization: Bearer {access_token}"
+```
+
+**Response:**
+```json
+{
+  "id": "usr_abc123",
+  "email": "user@example.com",
+  "name": "John Doe",
+  "role": "developer",
+  "organization": {
+    "id": "org_xyz789",
+    "name": "Acme Corp",
+    "slug": "acme-corp"
+  },
+  "permissions": [
+    "read:routes",
+    "read:models",
+    "write:playground",
+    "read:training",
+    "read:tokens"
+  ],
+  "last_login_at": "2025-01-06T10:30:00Z"
+}
+```
+
+### Update Profile
+
+```bash
+curl -X PUT https://api.pathfinder.ai/api/v1/auth/profile \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer {access_token}" \
+  -d '{
+    "name": "Updated Name",
+    "avatar_url": "https://example.com/avatar.png"
+  }'
+```
+
+### Change Password
+
+```bash
+curl -X POST https://api.pathfinder.ai/api/v1/auth/change-password \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer {access_token}" \
+  -d '{
+    "current_password": "OldPassword123!",
+    "new_password": "NewSecurePassword456!"
+  }'
+```
+
+### Logout
+
+```bash
+curl -X POST https://api.pathfinder.ai/api/v1/auth/logout \
+  -H "Authorization: Bearer {access_token}"
+```
+
+## User Roles and Permissions
+
+Pathfinder uses role-based access control (RBAC) to manage user permissions:
+
+| Role | Permissions |
+|------|-------------|
+| **Viewer** | `read:routes`, `read:models` |
+| **Developer** | Viewer + `write:playground`, `read:training`, `read:tokens` |
+| **Operator** | Developer + `write:training`, `write:tokens`, `read:providers`, `write:providers` |
+| **Admin** | Operator + `read:organizations`, `write:organizations`, `read:users`, `write:users` |
+
+<AccordionGroup>
+  <Accordion title="Viewer Role">
+    Read-only access to routes and models. Perfect for team members who need to monitor performance but not make changes.
+  </Accordion>
+  <Accordion title="Developer Role">
+    Can access the playground, view training data, and see API tokens. Ideal for engineers integrating Pathfinder.
+  </Accordion>
+  <Accordion title="Operator Role">
+    Can manage training data, tokens, and provider configurations. For DevOps and ML engineers.
+  </Accordion>
+  <Accordion title="Admin Role">
+    Full access including organization and user management. For team leads and account owners.
+  </Accordion>
+</AccordionGroup>
+
+## API Key Management
+
+### Creating API Keys via Dashboard
+
+1. Go to [dashboard.pathfinder.ai](https://dashboard.pathfinder.ai)
+2. Navigate to **Settings > API Keys** in the left sidebar
+3. Click **Create New Key**
+4. Give your key a descriptive name (e.g., "Production API", "Development", "Testing")
+5. Select the appropriate scopes/permissions
+6. Click **Create**
+7. **Copy the key immediately** - you won't see it again
+
+### Creating API Keys via API
+
+```bash
+curl -X POST https://api.pathfinder.ai/api/v1/tokens \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer {access_token}" \
+  -d '{
+    "name": "Production API Key",
+    "scopes": ["chat:completions", "routes:read"]
+  }'
+```
+
+## Managing Keys in Your Code
+
+### Option 1: Environment Variables (Recommended)
 
 ```bash
 # .env file (add to .gitignore!)
-PATHFINDER_API_KEY=sk_live_abc123...
+PATHFINDER_API_KEY=pk_live_abc123...
 ```
 
-```python
-# In your code
+<CodeGroup>
+
+```python Python
 import os
 api_key = os.getenv('PATHFINDER_API_KEY')
 
 response = requests.post(
-    'https://api.pathfinder.ai/v1/routes:decide',
+    'https://api.pathfinder.ai/v1/chat/completions',
     headers={'Authorization': f'Bearer {api_key}'},
-    json={'prompt': '...'}
+    json={'model': 'auto', 'messages': [{'role': 'user', 'content': 'Hello'}]}
 )
 ```
 
-#### Option 2: Configuration File
+```javascript JavaScript
+const apiKey = process.env.PATHFINDER_API_KEY;
 
-```python
-# config.py (excluded from Git)
-PATHFINDER_API_KEY = 'sk_live_abc123...'
+const response = await fetch('https://api.pathfinder.ai/v1/chat/completions', {
+  method: 'POST',
+  headers: {
+    'Authorization': `Bearer ${apiKey}`,
+    'Content-Type': 'application/json'
+  },
+  body: JSON.stringify({
+    model: 'auto',
+    messages: [{ role: 'user', content: 'Hello' }]
+  })
+});
 ```
 
-```python
-# In your application
-from config import PATHFINDER_API_KEY
+</CodeGroup>
 
-response = requests.post(
-    'https://api.pathfinder.ai/v1/routes:decide',
-    headers={'Authorization': f'Bearer {PATHFINDER_API_KEY}'},
-    json={'prompt': '...'}
-)
-```
-
-#### Option 3: Secrets Management (Production)
+### Option 2: Secrets Management (Production)
 
 For production applications, use a secrets manager:
 
-**AWS Secrets Manager:**
-```python
+<CodeGroup>
+
+```python AWS Secrets Manager
 import boto3
 
 client = boto3.client('secretsmanager')
@@ -116,8 +313,7 @@ secret = client.get_secret_value(SecretId='pathfinder-api-key')
 api_key = secret['SecretString']
 ```
 
-**HashiCorp Vault:**
-```python
+```python HashiCorp Vault
 import hvac
 
 client = hvac.Client(url='http://vault:8200')
@@ -125,8 +321,7 @@ secret = client.secrets.kv.read_secret_version(path='pathfinder-api-key')
 api_key = secret['data']['data']['api_key']
 ```
 
-**Google Cloud Secret Manager:**
-```python
+```python Google Cloud Secret Manager
 from google.cloud import secretmanager
 
 client = secretmanager.SecretManagerServiceClient()
@@ -135,60 +330,184 @@ response = client.access_secret_version(request={"name": name})
 api_key = response.payload.data.decode('UTF-8')
 ```
 
-### Key Rotation
+</CodeGroup>
+
+## Client SDK Examples
+
+### Python Client
+
+```python
+import requests
+
+class PathfinderClient:
+    def __init__(self, base_url="https://api.pathfinder.ai"):
+        self.base_url = base_url
+        self.access_token = None
+        self.refresh_token = None
+
+    def login(self, email: str, password: str):
+        """Authenticate and store tokens."""
+        response = requests.post(
+            f"{self.base_url}/api/v1/auth/login",
+            json={"email": email, "password": password}
+        )
+        response.raise_for_status()
+        data = response.json()
+        self.access_token = data["access_token"]
+        self.refresh_token = data["refresh_token"]
+        return data["user"]
+
+    def refresh(self):
+        """Refresh the access token."""
+        response = requests.post(
+            f"{self.base_url}/api/v1/auth/refresh",
+            json={"refresh_token": self.refresh_token}
+        )
+        response.raise_for_status()
+        data = response.json()
+        self.access_token = data["access_token"]
+
+    def chat(self, messages: list, model: str = "auto"):
+        """Send a chat completion request."""
+        response = requests.post(
+            f"{self.base_url}/v1/chat/completions",
+            headers={"Authorization": f"Bearer {self.access_token}"},
+            json={"model": model, "messages": messages}
+        )
+        response.raise_for_status()
+        return response.json()
+
+# Usage
+client = PathfinderClient()
+client.login("user@example.com", "password")
+result = client.chat([{"role": "user", "content": "Hello!"}])
+print(result["choices"][0]["message"]["content"])
+```
+
+### JavaScript Client
+
+```javascript
+class PathfinderClient {
+  constructor(baseUrl = 'https://api.pathfinder.ai') {
+    this.baseUrl = baseUrl;
+    this.accessToken = null;
+    this.refreshToken = null;
+  }
+
+  async login(email, password) {
+    const response = await fetch(`${this.baseUrl}/api/v1/auth/login`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, password })
+    });
+
+    if (!response.ok) throw new Error('Login failed');
+
+    const data = await response.json();
+    this.accessToken = data.access_token;
+    this.refreshToken = data.refresh_token;
+    return data.user;
+  }
+
+  async refresh() {
+    const response = await fetch(`${this.baseUrl}/api/v1/auth/refresh`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ refresh_token: this.refreshToken })
+    });
+
+    if (!response.ok) throw new Error('Token refresh failed');
+
+    const data = await response.json();
+    this.accessToken = data.access_token;
+  }
+
+  async chat(messages, model = 'auto') {
+    const response = await fetch(`${this.baseUrl}/v1/chat/completions`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${this.accessToken}`
+      },
+      body: JSON.stringify({ model, messages })
+    });
+
+    if (!response.ok) throw new Error('Chat request failed');
+    return response.json();
+  }
+}
+
+// Usage
+const client = new PathfinderClient();
+await client.login('user@example.com', 'password');
+const result = await client.chat([{ role: 'user', content: 'Hello!' }]);
+console.log(result.choices[0].message.content);
+```
+
+## Security Best Practices
+
+<Warning>
+Never expose your API keys! They give full access to your account.
+</Warning>
+
+### DO:
+- ✅ Store keys in environment variables or secrets managers
+- ✅ Use different keys for dev/test/prod environments
+- ✅ Rotate keys regularly (monthly recommended)
+- ✅ Use short-lived keys when possible
+- ✅ Limit key scope to only required permissions
+- ✅ Monitor usage in the dashboard for unusual activity
+- ✅ Use HTTPS only - never send credentials over unencrypted connections
+- ✅ Implement automatic token refresh for JWT authentication
+
+### DON'T:
+- ❌ Commit keys to Git (use `.env` files with `.gitignore`)
+- ❌ Log keys in application logs
+- ❌ Share keys in Slack, email, or messaging
+- ❌ Use the same key for multiple projects
+- ❌ Leave old or unused keys active
+- ❌ Expose API keys in client-side code (use server-side proxies for web apps)
+- ❌ Use production keys in development/testing
+
+### Key Rotation Process
 
 Rotate your API keys regularly for security:
 
-1. **Create a new key** in the dashboard
+1. **Create a new key** in the dashboard with the same permissions
 2. **Update your applications** to use the new key
-3. **Wait 24 hours** to ensure all systems updated
-4. **Delete the old key**
-
-## Tenant Authentication
-
-### What is a Tenant?
-
-If you're using Pathfinder in a multi-tenant application (e.g., a SaaS platform), you need to specify which tenant the request is for.
-
-The `tenant_id` is automatically determined from your API key. Each API key belongs to exactly one organization/tenant.
-
-**Note:** If you need to serve multiple tenants from a single application, you should use separate API keys per tenant, or contact support about multi-tenant API key handling.
+3. **Wait 24-48 hours** to ensure all systems are updated
+4. **Test thoroughly** in all environments
+5. **Delete the old key** from the dashboard
 
 ## Testing Authentication
 
-### Verify Your Key Works
+### Verify Your API Key Works
 
 ```bash
-curl -X POST https://api.pathfinder.ai/v1/routes:decide \
-  -H "Authorization: Bearer sk_live_YOUR_API_KEY" \
+curl -X POST https://api.pathfinder.ai/v1/chat/completions \
+  -H "Authorization: Bearer pk_live_YOUR_API_KEY" \
   -H "Content-Type: application/json" \
-  -d '{"prompt": "test"}'
+  -d '{
+    "model": "auto",
+    "messages": [{"role": "user", "content": "test"}]
+  }'
 ```
 
-If successful, you'll get a routing decision. If unsuccessful:
-
-| Response | Meaning | Solution |
-|----------|---------|----------|
-| `401 Unauthorized` | Invalid or missing key | Check key format and spelling |
-| `403 Forbidden` | Key disabled or revoked | Create a new key in dashboard |
-| `429 Too Many Requests` | Rate limited | You're sending too many requests too fast |
-
-### Using Test Keys
-
-For development and testing, use `sk_test_` keys:
+### Verify JWT Token Works
 
 ```bash
-curl -X POST https://api.pathfinder.ai/v1/routes:decide \
-  -H "Authorization: Bearer sk_test_dev123..." \
-  -H "Content-Type: application/json" \
-  -d '{"prompt": "test"}'
+curl https://api.pathfinder.ai/api/v1/auth/me \
+  -H "Authorization: Bearer {access_token}"
 ```
 
-Test keys:
-- Are free to use (no charges)
-- Return mock routing decisions
-- Help you test integration without costs
-- Never actually call model providers
+### Common Error Responses
+
+| Status | Error | Meaning | Solution |
+|--------|-------|---------|----------|
+| `401` | Unauthorized | Invalid or missing credentials | Check key format, spelling, and ensure it's active |
+| `403` | Forbidden | Valid credentials but insufficient permissions | Check user role or key scopes |
+| `422` | Validation Error | Missing required fields | Verify request payload includes all required fields |
+| `429` | Too Many Requests | Rate limited | Implement exponential backoff, upgrade plan if needed |
 
 ## Rate Limits
 
@@ -200,20 +519,18 @@ All API keys have rate limits to prevent abuse:
 | Professional | 300 | 100,000 |
 | Enterprise | Custom | Custom |
 
-If you exceed rate limits, you'll receive a `429 Too Many Requests` response.
-
-**Handling rate limits:**
+### Handling Rate Limits
 
 ```python
 import requests
 import time
 
-def make_request_with_retry(prompt, api_key, max_retries=3):
+def make_request_with_retry(messages, api_key, max_retries=3):
     for attempt in range(max_retries):
         response = requests.post(
-            'https://api.pathfinder.ai/v1/routes:decide',
+            'https://api.pathfinder.ai/v1/chat/completions',
             headers={'Authorization': f'Bearer {api_key}'},
-            json={'prompt': prompt}
+            json={'model': 'auto', 'messages': messages}
         )
 
         if response.status_code == 429:
@@ -227,20 +544,48 @@ def make_request_with_retry(prompt, api_key, max_retries=3):
     raise Exception("Max retries exceeded")
 ```
 
+## Tenant Authentication
+
+### What is a Tenant?
+
+If you're using Pathfinder in a multi-tenant application (e.g., a SaaS platform), you need to specify which tenant the request is for.
+
+The `tenant_id` is automatically determined from your API key. Each API key belongs to exactly one organization/tenant.
+
+<Note>
+If you need to serve multiple tenants from a single application, you should use separate API keys per tenant, or contact support about multi-tenant API key handling.
+</Note>
+
 ## Security Checklist
+
+Before going to production, ensure you've completed these security steps:
 
 - [ ] API key stored in environment variable or secrets manager
 - [ ] API key not committed to Git
-- [ ] Using production keys (`sk_live_`) only in production
-- [ ] Using test keys (`sk_test_`) in development
+- [ ] Using production keys (`pk_live_`) only in production
+- [ ] Using test keys (`pk_test_`) in development
 - [ ] Different keys for different environments
-- [ ] API key rotation scheduled monthly
-- [ ] Old/unused keys deleted
+- [ ] API key rotation scheduled (monthly recommended)
+- [ ] Old/unused keys deleted from dashboard
 - [ ] Rate limiting handled in application code
-- [ ] Error messages don't leak API keys
+- [ ] Error messages don't leak API keys or sensitive data
+- [ ] JWT token refresh logic implemented
+- [ ] HTTPS enforced for all API calls
+- [ ] Appropriate user roles assigned to team members
 
 ## Next Steps
 
-- [Make Your First API Call](/docs/api/getting-started/quickstart)
-- [Error Handling Guide](/docs/api/guides/error-handling)
-- [Production Deployment](/docs/api/guides/production-checklist)
+<CardGroup cols={2}>
+  <Card title="Make Your First API Call" icon="rocket" href="/pathfinder/getting-started/quickstart">
+    Learn how to make your first request to Pathfinder
+  </Card>
+  <Card title="Explore API Endpoints" icon="code" href="/pathfinder/api-reference/rest/overview">
+    View all available REST API endpoints
+  </Card>
+  <Card title="Integration Guides" icon="book" href="/pathfinder/guides/integrations/python">
+    Step-by-step guides for Python, Node.js, and more
+  </Card>
+  <Card title="Dashboard Guide" icon="dashboard" href="/pathfinder/dashboard/overview">
+    Learn how to use the Pathfinder dashboard
+  </Card>
+</CardGroup>

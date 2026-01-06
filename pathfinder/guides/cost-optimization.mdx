@@ -1,174 +1,961 @@
 ---
 title: "Cost Optimization Guide"
-description: "Reduce LLM API costs with intelligent routing"
+description: "Reduce LLM API costs with intelligent routing policies and constraints"
 ---
 
 ## Overview
 
-Pathfinder can reduce your LLM API costs by 30-70% through intelligent model selection.
+Pathfinder provides powerful routing controls to optimize your LLM costs while maintaining quality. This guide covers routing policies, cost constraints, provider preferences, and model selection strategies.
 
-## How Cost Optimization Works
+## Routing Policies
 
-### 1. Task-Based Routing
+Use the `routing.policy` parameter to control how Pathfinder selects models:
 
-Route simple tasks to cheaper models, complex tasks to expensive models.
+| Policy | Description | Use Case |
+|--------|-------------|----------|
+| `cost_optimized` | Selects the cheapest capable model | High-volume, cost-sensitive workloads |
+| `quality_first` | Selects the highest quality model | Complex reasoning, critical tasks |
+| `latency_first` | Selects the fastest model | Real-time applications |
+| `balanced` | Balances cost, quality, and latency | General use (default) |
 
-```python
-# Simple task → cheap model
-decision = pathfinder.routes.decide(
-    prompt="Translate 'hello' to Spanish",
-    constraints={"max_cost_usd": 0.001}
-)
-# Result: gpt-3.5-turbo ($0.0005)
+### Cost-Optimized Routing
 
-# Complex task → expensive model
-decision = pathfinder.routes.decide(
-    prompt="Write a complex algorithm...",
-    constraints={"max_cost_usd": 0.05}
-)
-# Result: gpt-4-turbo ($0.015)
+Route to the cheapest model that can handle your request:
+
+<CodeGroup>
+
+```bash cURL
+curl -X POST https://api.dev.pathfinder.naivana.io/v1/chat/completions \
+  -H "Content-Type: application/json" \
+  -H "X-API-Key: your-api-key-here" \
+  -d '{
+    "model": "auto",
+    "messages": [{"role": "user", "content": "Hi"}],
+    "routing": {
+      "policy": "cost_optimized"
+    }
+  }'
 ```
 
-### 2. Cost Constraints
+```python Python
+import requests
 
-Set hard limits on per-request costs:
+response = requests.post(
+    "https://api.dev.pathfinder.naivana.io/v1/chat/completions",
+    headers={
+        "Content-Type": "application/json",
+        "X-API-Key": "your-api-key-here"
+    },
+    json={
+        "model": "auto",
+        "messages": [{"role": "user", "content": "Hi"}],
+        "routing": {
+            "policy": "cost_optimized"
+        }
+    }
+)
 
-```python
-decision = pathfinder.routes.decide(
-    prompt="Your prompt here",
-    constraints={"max_cost_usd": 0.01}
+result = response.json()
+print(f"Model: {result['pathfinder']['model']}")
+print(f"Cost: ${result['pathfinder']['cost_usd']:.6f}")
+```
+
+```javascript JavaScript
+const response = await fetch('https://api.dev.pathfinder.naivana.io/v1/chat/completions', {
+  method: 'POST',
+  headers: {
+    'Content-Type': 'application/json',
+    'X-API-Key': 'your-api-key-here'
+  },
+  body: JSON.stringify({
+    model: 'auto',
+    messages: [{ role: 'user', content: 'Hi' }],
+    routing: {
+      policy: 'cost_optimized'
+    }
+  })
+});
+
+const result = await response.json();
+console.log(`Model: ${result.pathfinder.model}`);
+console.log(`Cost: $${result.pathfinder.cost_usd.toFixed(6)}`);
+```
+
+</CodeGroup>
+
+**Response includes cost information:**
+
+```json
+{
+  "choices": [...],
+  "pathfinder": {
+    "provider": "google",
+    "model": "gemini-2.5-flash",
+    "cost_usd": 0.000015,
+    "decision_id": "dec_abc123"
+  }
+}
+```
+
+### Quality-First Routing
+
+Route to the highest quality model for complex tasks:
+
+<CodeGroup>
+
+```bash cURL
+curl -X POST https://api.dev.pathfinder.naivana.io/v1/chat/completions \
+  -H "Content-Type: application/json" \
+  -H "X-API-Key: your-api-key-here" \
+  -d '{
+    "model": "auto",
+    "messages": [{"role": "user", "content": "Explain quantum entanglement"}],
+    "routing": {
+      "policy": "quality_first"
+    }
+  }'
+```
+
+```python Python
+response = requests.post(
+    "https://api.dev.pathfinder.naivana.io/v1/chat/completions",
+    headers={
+        "Content-Type": "application/json",
+        "X-API-Key": "your-api-key-here"
+    },
+    json={
+        "model": "auto",
+        "messages": [{"role": "user", "content": "Explain quantum entanglement"}],
+        "routing": {
+            "policy": "quality_first"
+        }
+    }
 )
 ```
 
-Pathfinder will never recommend a model exceeding this cost.
+```javascript JavaScript
+const response = await fetch('https://api.dev.pathfinder.naivana.io/v1/chat/completions', {
+  method: 'POST',
+  headers: {
+    'Content-Type': 'application/json',
+    'X-API-Key': 'your-api-key-here'
+  },
+  body: JSON.stringify({
+    model: 'auto',
+    messages: [{ role: 'user', content: 'Explain quantum entanglement' }],
+    routing: {
+      policy: 'quality_first'
+    }
+  })
+});
+```
 
-### 3. Provider Arbitrage
+</CodeGroup>
 
-Use cost differences between providers:
+### Latency-First Routing
 
-| Task Type | Expensive Option | Cheaper Option | Savings |
-|-----------|------------------|----------------|---------|
-| Simple text | GPT-4 ($0.03) | GPT-3.5 ($0.001) | 97% |
-| Code generation | Claude Opus ($0.05) | Claude Sonnet ($0.01) | 80% |
-| Long context | GPT-4 Turbo ($0.03) | Gemini Pro ($0.007) | 77% |
+Route to the fastest available model:
 
-## Strategies
+<CodeGroup>
+
+```bash cURL
+curl -X POST https://api.dev.pathfinder.naivana.io/v1/chat/completions \
+  -H "Content-Type: application/json" \
+  -H "X-API-Key: your-api-key-here" \
+  -d '{
+    "model": "auto",
+    "messages": [{"role": "user", "content": "Quick answer needed"}],
+    "routing": {
+      "policy": "latency_first"
+    }
+  }'
+```
+
+```python Python
+response = requests.post(
+    "https://api.dev.pathfinder.naivana.io/v1/chat/completions",
+    headers={
+        "Content-Type": "application/json",
+        "X-API-Key": "your-api-key-here"
+    },
+    json={
+        "model": "auto",
+        "messages": [{"role": "user", "content": "Quick answer needed"}],
+        "routing": {
+            "policy": "latency_first"
+        }
+    }
+)
+```
+
+```javascript JavaScript
+const response = await fetch('https://api.dev.pathfinder.naivana.io/v1/chat/completions', {
+  method: 'POST',
+  headers: {
+    'Content-Type': 'application/json',
+    'X-API-Key': 'your-api-key-here'
+  },
+  body: JSON.stringify({
+    model: 'auto',
+    messages: [{ role: 'user', content: 'Quick answer needed' }],
+    routing: {
+      policy: 'latency_first'
+    }
+  })
+});
+```
+
+</CodeGroup>
+
+## Cost Constraints
+
+Set a maximum cost per request with `max_cost_usd`. Pathfinder will never recommend a model exceeding this limit.
+
+### Low Cost Constraint ($0.001)
+
+<CodeGroup>
+
+```bash cURL
+curl -X POST https://api.dev.pathfinder.naivana.io/v1/chat/completions \
+  -H "Content-Type: application/json" \
+  -H "X-API-Key: your-api-key-here" \
+  -d '{
+    "model": "auto",
+    "messages": [{"role": "user", "content": "Translate hello to Spanish"}],
+    "routing": {
+      "max_cost_usd": 0.001
+    }
+  }'
+```
+
+```python Python
+response = requests.post(
+    "https://api.dev.pathfinder.naivana.io/v1/chat/completions",
+    headers={
+        "Content-Type": "application/json",
+        "X-API-Key": "your-api-key-here"
+    },
+    json={
+        "model": "auto",
+        "messages": [{"role": "user", "content": "Translate hello to Spanish"}],
+        "routing": {
+            "max_cost_usd": 0.001
+        }
+    }
+)
+```
+
+```javascript JavaScript
+const response = await fetch('https://api.dev.pathfinder.naivana.io/v1/chat/completions', {
+  method: 'POST',
+  headers: {
+    'Content-Type': 'application/json',
+    'X-API-Key': 'your-api-key-here'
+  },
+  body: JSON.stringify({
+    model: 'auto',
+    messages: [{ role: 'user', content: 'Translate hello to Spanish' }],
+    routing: {
+      max_cost_usd: 0.001
+    }
+  })
+});
+```
+
+</CodeGroup>
+
+The response cost will always be at or below your constraint:
+
+```json
+{
+  "pathfinder": {
+    "cost_usd": 0.00008,
+    "model": "gemini-2.5-flash"
+  }
+}
+```
+
+### Medium Cost Constraint ($0.01)
+
+```bash
+curl -X POST https://api.dev.pathfinder.naivana.io/v1/chat/completions \
+  -H "Content-Type: application/json" \
+  -H "X-API-Key: your-api-key-here" \
+  -d '{
+    "model": "auto",
+    "messages": [{"role": "user", "content": "Write a complex algorithm"}],
+    "routing": {
+      "max_cost_usd": 0.01
+    }
+  }'
+```
+
+## Provider Preferences
+
+Control which providers Pathfinder routes to using `preferred_providers` and `exclude_providers`.
+
+### Prefer Specific Providers
+
+Route preferentially to specific providers:
+
+<CodeGroup>
+
+```bash Anthropic
+curl -X POST https://api.dev.pathfinder.naivana.io/v1/chat/completions \
+  -H "Content-Type: application/json" \
+  -H "X-API-Key: your-api-key-here" \
+  -d '{
+    "model": "auto",
+    "messages": [{"role": "user", "content": "Hi"}],
+    "routing": {
+      "preferred_providers": ["anthropic"]
+    }
+  }'
+```
+
+```bash Google
+curl -X POST https://api.dev.pathfinder.naivana.io/v1/chat/completions \
+  -H "Content-Type: application/json" \
+  -H "X-API-Key: your-api-key-here" \
+  -d '{
+    "model": "auto",
+    "messages": [{"role": "user", "content": "Hi"}],
+    "routing": {
+      "preferred_providers": ["google"]
+    }
+  }'
+```
+
+```bash OpenAI
+curl -X POST https://api.dev.pathfinder.naivana.io/v1/chat/completions \
+  -H "Content-Type: application/json" \
+  -H "X-API-Key: your-api-key-here" \
+  -d '{
+    "model": "auto",
+    "messages": [{"role": "user", "content": "Hi"}],
+    "routing": {
+      "preferred_providers": ["openai"]
+    }
+  }'
+```
+
+</CodeGroup>
+
+### Exclude Providers
+
+Block specific providers from being used:
+
+<CodeGroup>
+
+```bash Single Provider
+curl -X POST https://api.dev.pathfinder.naivana.io/v1/chat/completions \
+  -H "Content-Type: application/json" \
+  -H "X-API-Key: your-api-key-here" \
+  -d '{
+    "model": "auto",
+    "messages": [{"role": "user", "content": "Hi"}],
+    "routing": {
+      "exclude_providers": ["google"]
+    }
+  }'
+```
+
+```bash Multiple Providers
+curl -X POST https://api.dev.pathfinder.naivana.io/v1/chat/completions \
+  -H "Content-Type: application/json" \
+  -H "X-API-Key: your-api-key-here" \
+  -d '{
+    "model": "auto",
+    "messages": [{"role": "user", "content": "Hi"}],
+    "routing": {
+      "exclude_providers": ["anthropic", "openai", "azure"]
+    }
+  }'
+```
+
+</CodeGroup>
+
+### Combining Preferences and Exclusions
+
+```bash
+curl -X POST https://api.dev.pathfinder.naivana.io/v1/chat/completions \
+  -H "Content-Type: application/json" \
+  -H "X-API-Key: your-api-key-here" \
+  -d '{
+    "model": "auto",
+    "messages": [{"role": "user", "content": "Hi"}],
+    "routing": {
+      "preferred_providers": ["google", "anthropic"],
+      "exclude_providers": ["google"]
+    }
+  }'
+```
+
+<Note>
+When combining preferences and exclusions, exclusions take precedence. The above example would route to Anthropic.
+</Note>
+
+## Model Selection Strategies
+
+### User-Tier Routing
+
+Route users to different models based on subscription tier:
+
+<CodeGroup>
+
+```python Python
+def get_routing_config(user_tier):
+    """Get routing configuration based on user tier."""
+    if user_tier == "free":
+        return {
+            "policy": "cost_optimized",
+            "max_cost_usd": 0.001
+        }
+    elif user_tier == "pro":
+        return {
+            "policy": "balanced",
+            "max_cost_usd": 0.01
+        }
+    else:  # enterprise
+        return {
+            "policy": "quality_first",
+            "max_cost_usd": 0.05
+        }
+
+# Usage
+routing = get_routing_config(user.tier)
+response = requests.post(
+    "https://api.dev.pathfinder.naivana.io/v1/chat/completions",
+    headers={
+        "Content-Type": "application/json",
+        "X-API-Key": "your-api-key-here"
+    },
+    json={
+        "model": "auto",
+        "messages": messages,
+        "routing": routing
+    }
+)
+```
+
+```javascript JavaScript
+function getRoutingConfig(userTier) {
+  if (userTier === 'free') {
+    return {
+      policy: 'cost_optimized',
+      max_cost_usd: 0.001
+    };
+  } else if (userTier === 'pro') {
+    return {
+      policy: 'balanced',
+      max_cost_usd: 0.01
+    };
+  } else { // enterprise
+    return {
+      policy: 'quality_first',
+      max_cost_usd: 0.05
+    };
+  }
+}
+
+// Usage
+const routing = getRoutingConfig(user.tier);
+const response = await fetch('https://api.dev.pathfinder.naivana.io/v1/chat/completions', {
+  method: 'POST',
+  headers: {
+    'Content-Type': 'application/json',
+    'X-API-Key': 'your-api-key-here'
+  },
+  body: JSON.stringify({
+    model: 'auto',
+    messages,
+    routing
+  })
+});
+```
+
+</CodeGroup>
 
 ### Budget-Based Routing
 
+Adjust routing based on monthly budget:
+
 ```python
-# Set monthly budget
+# Track monthly spending
 MONTHLY_BUDGET = 1000  # $1000/month
-monthly_spend = get_current_spend()  # Track via analytics
+monthly_spend = get_current_spend()  # From analytics API
 
 # Adjust constraints based on remaining budget
 if monthly_spend > MONTHLY_BUDGET * 0.8:
     # Approaching budget - use cheaper models
-    max_cost = 0.001
+    routing_config = {
+        "policy": "cost_optimized",
+        "max_cost_usd": 0.001
+    }
 else:
     # Budget available - allow more expensive models
-    max_cost = 0.05
+    routing_config = {
+        "policy": "balanced",
+        "max_cost_usd": 0.05
+    }
 
-decision = pathfinder.routes.decide(
-    prompt=prompt,
-    constraints={"max_cost_usd": max_cost}
-)
-```
-
-### User-Tier Routing
-
-```python
-# Free users → cheap models
-# Paid users → expensive models
-
-if user.tier == "free":
-    max_cost = 0.001
-elif user.tier == "pro":
-    max_cost = 0.01
-else:  # enterprise
-    max_cost = 0.05
-
-decision = pathfinder.routes.decide(
-    prompt=prompt,
-    constraints={"max_cost_usd": max_cost}
-)
-```
-
-### Prompt Complexity Detection
-
-Let Pathfinder automatically detect complexity:
-
-```python
-# No constraints - Pathfinder uses cheapest model that can handle it
-decision = pathfinder.routes.decide(prompt=prompt)
-
-# Simple prompt → cheap model
-# "Hello" → gpt-3.5-turbo ($0.0005)
-
-# Complex prompt → expensive model
-# "Explain quantum field theory" → gpt-4 ($0.03)
-```
-
-## Cost Tracking
-
-### Dashboard Analytics
-
-View cost breakdowns at: https://pathfinder.ai/dashboard/analytics
-
-- Total spend by model
-- Cost per user
-- Cost trends over time
-
-### API Analytics
-
-```python
-# Get cost analytics
-response = requests.get(
-    "https://api.pathfinder.ai/v1/analytics/costs",
-    headers={"Authorization": f"Bearer {API_KEY}"},
-    params={
-        "start_date": "2025-11-01",
-        "end_date": "2025-11-11"
+response = requests.post(
+    "https://api.dev.pathfinder.naivana.io/v1/chat/completions",
+    headers={
+        "Content-Type": "application/json",
+        "X-API-Key": "your-api-key-here"
+    },
+    json={
+        "model": "auto",
+        "messages": messages,
+        "routing": routing_config
     }
 )
-
-analytics = response.json()
-print(f"Total spend: ${analytics['total_usd']}")
-print(f"Average cost per request: ${analytics['avg_cost_usd']}")
 ```
 
-## Cost Estimation
+### Task-Based Routing
 
-Pathfinder returns cost estimates:
+Route different task types to appropriate models:
+
+```python
+def route_by_task(task_type, prompt):
+    """Route based on task complexity."""
+    routing_configs = {
+        "translation": {
+            "policy": "cost_optimized",
+            "max_cost_usd": 0.001
+        },
+        "summarization": {
+            "policy": "balanced",
+            "max_cost_usd": 0.005
+        },
+        "code_generation": {
+            "policy": "quality_first",
+            "max_cost_usd": 0.02
+        },
+        "complex_reasoning": {
+            "policy": "quality_first",
+            "max_cost_usd": 0.05
+        }
+    }
+
+    routing = routing_configs.get(task_type, {"policy": "balanced"})
+
+    response = requests.post(
+        "https://api.dev.pathfinder.naivana.io/v1/chat/completions",
+        headers={
+            "Content-Type": "application/json",
+            "X-API-Key": "your-api-key-here"
+        },
+        json={
+            "model": "auto",
+            "messages": [{"role": "user", "content": prompt}],
+            "routing": routing
+        }
+    )
+
+    return response.json()
+
+# Usage
+result = route_by_task("translation", "Translate 'hello' to Spanish")
+```
+
+## Model Pricing Reference
+
+Current pricing (per million tokens):
+
+| Model | Input | Output | Provider |
+|-------|-------|--------|----------|
+| gemini-2.5-flash | $0.30 | $2.50 | Google |
+| gemini-3-flash | $0.50 | $3.00 | Google |
+| claude-haiku-4-5 | $1.00 | $5.00 | Anthropic |
+| gemini-2.5-pro | $1.25 | $10.00 | Google |
+| gpt-5.1 | $1.50 | $12.00 | OpenAI |
+| gpt-5.2 | $1.75 | $14.00 | OpenAI |
+| gemini-3-pro | $2.00 | $12.00 | Google |
+| claude-sonnet-4-5 | $3.00 | $15.00 | Anthropic |
+| claude-opus-4-5 | $5.00 | $25.00 | Anthropic |
+
+<Tip>
+Use `cost_optimized` policy with flash models for high-volume, simple tasks to maximize cost savings.
+</Tip>
+
+## Monitoring Costs
+
+### Per-Request Costs
+
+Every response includes cost information in the `pathfinder` object:
 
 ```json
 {
-  "estimated_cost_usd": 0.015,
-  "fallback_options": [
-    {
-      "model": "claude-sonnet-4-5-20250929",
-      "estimated_cost_usd": 0.018
-    },
-    {
-      "model": "gpt-3.5-turbo",
-      "estimated_cost_usd": 0.002
-    }
-  ]
+  "choices": [...],
+  "pathfinder": {
+    "provider": "anthropic",
+    "model": "claude-haiku-4-5",
+    "cost_usd": 0.000125,
+    "decision_id": "dec_abc123"
+  }
 }
 ```
 
-Use these for budget planning.
+### Analytics API
+
+Get aggregated cost data via the analytics endpoints:
+
+<CodeGroup>
+
+```bash Spending Summary
+curl https://api.dev.pathfinder.naivana.io/api/v1/dashboard/spending/summary \
+  -H "Authorization: Bearer {access_token}"
+```
+
+```bash Cost by Provider
+curl "https://api.dev.pathfinder.naivana.io/api/v1/routing/cost-by-provider?time_range=30d" \
+  -H "Authorization: Bearer {access_token}"
+```
+
+</CodeGroup>
+
+### Track Costs in Code
+
+```python
+def track_request_cost(response):
+    """Track and log request costs."""
+    pathfinder_info = response.get('pathfinder', {})
+
+    cost = pathfinder_info.get('cost_usd', 0)
+    model = pathfinder_info.get('model', 'unknown')
+    provider = pathfinder_info.get('provider', 'unknown')
+
+    # Log to your analytics system
+    log_analytics({
+        'cost_usd': cost,
+        'model': model,
+        'provider': provider,
+        'timestamp': datetime.now()
+    })
+
+    return cost
+
+# Usage
+response = make_completion_request(...)
+cost = track_request_cost(response)
+print(f"Request cost: ${cost:.6f}")
+```
+
+## Routing Decision API
+
+Use the routing decision API to preview routing without making a completion:
+
+### Preview Routing
+
+```bash
+curl -X POST https://api.dev.pathfinder.naivana.io/v1/routes:preview \
+  -H "Content-Type: application/json" \
+  -H "X-API-Key: your-api-key-here" \
+  -d '{
+    "prompt": "Test prompt for preview"
+  }'
+```
+
+**Response:**
+
+```json
+{
+  "decision_id": "dec_xyz789",
+  "selected_model": "claude-haiku-4-5",
+  "provider": "anthropic",
+  "confidence": 0.92,
+  "estimated_cost_usd": 0.00015
+}
+```
+
+### Decide with Constraints
+
+```bash
+curl -X POST https://api.dev.pathfinder.naivana.io/v1/routes:decide \
+  -H "Content-Type: application/json" \
+  -H "X-API-Key: your-api-key-here" \
+  -d '{
+    "prompt": "Hello world",
+    "max_cost_usd": 0.001,
+    "preferred_providers": ["anthropic"]
+  }'
+```
+
+## Real-World Examples
+
+### Example 1: Multi-Tenant SaaS
+
+```python
+class PathfinderClient:
+    def __init__(self, api_key):
+        self.api_key = api_key
+        self.base_url = "https://api.dev.pathfinder.naivana.io"
+
+    def chat_completion(self, messages, tenant_config):
+        """Make a chat completion with tenant-specific routing."""
+        routing = {
+            "policy": tenant_config.get("policy", "balanced"),
+            "max_cost_usd": tenant_config.get("max_cost", 0.01)
+        }
+
+        if tenant_config.get("preferred_providers"):
+            routing["preferred_providers"] = tenant_config["preferred_providers"]
+
+        response = requests.post(
+            f"{self.base_url}/v1/chat/completions",
+            headers={
+                "Content-Type": "application/json",
+                "X-API-Key": self.api_key
+            },
+            json={
+                "model": "auto",
+                "messages": messages,
+                "routing": routing
+            }
+        )
+
+        return response.json()
+
+# Tenant configurations
+TENANT_CONFIGS = {
+    "startup": {
+        "policy": "cost_optimized",
+        "max_cost": 0.001,
+        "preferred_providers": ["google"]
+    },
+    "enterprise": {
+        "policy": "quality_first",
+        "max_cost": 0.05,
+        "preferred_providers": ["anthropic", "openai"]
+    }
+}
+
+# Usage
+client = PathfinderClient("your-api-key")
+tenant = get_current_tenant()
+config = TENANT_CONFIGS.get(tenant.type, TENANT_CONFIGS["startup"])
+
+result = client.chat_completion(
+    messages=[{"role": "user", "content": "Help me with this task"}],
+    tenant_config=config
+)
+```
+
+### Example 2: Cost-Aware Chatbot
+
+```javascript
+class CostAwareChatbot {
+  constructor(apiKey, monthlyBudget = 1000) {
+    this.apiKey = apiKey;
+    this.monthlyBudget = monthlyBudget;
+    this.baseUrl = 'https://api.dev.pathfinder.naivana.io';
+  }
+
+  async getMonthlySpend() {
+    const response = await fetch(
+      `${this.baseUrl}/api/v1/dashboard/spending/summary`,
+      {
+        headers: {
+          'Authorization': `Bearer ${this.accessToken}`
+        }
+      }
+    );
+    const data = await response.json();
+    return data.total_spend || 0;
+  }
+
+  async chat(message) {
+    const monthlySpend = await this.getMonthlySpend();
+    const budgetRemaining = this.monthlyBudget - monthlySpend;
+    const budgetRatio = monthlySpend / this.monthlyBudget;
+
+    // Adjust routing based on budget
+    let routing;
+    if (budgetRatio > 0.9) {
+      // Critical: use cheapest models only
+      routing = {
+        policy: 'cost_optimized',
+        max_cost_usd: 0.0005,
+        preferred_providers: ['google']
+      };
+    } else if (budgetRatio > 0.7) {
+      // Warning: prefer cheaper models
+      routing = {
+        policy: 'cost_optimized',
+        max_cost_usd: 0.002
+      };
+    } else {
+      // Normal: balanced approach
+      routing = {
+        policy: 'balanced',
+        max_cost_usd: 0.01
+      };
+    }
+
+    const response = await fetch(`${this.baseUrl}/v1/chat/completions`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-API-Key': this.apiKey
+      },
+      body: JSON.stringify({
+        model: 'auto',
+        messages: [{ role: 'user', content: message }],
+        routing
+      })
+    });
+
+    const result = await response.json();
+
+    console.log(`Budget: ${budgetRatio * 100}% used`);
+    console.log(`Request cost: $${result.pathfinder.cost_usd}`);
+    console.log(`Model: ${result.pathfinder.model}`);
+
+    return result;
+  }
+}
+
+// Usage
+const chatbot = new CostAwareChatbot('your-api-key', 1000);
+const response = await chatbot.chat('Hello, how are you?');
+```
+
+### Example 3: Provider Arbitrage
+
+```python
+def provider_arbitrage_routing(prompt, task_type):
+    """Route to the most cost-effective provider for the task."""
+
+    # Provider preferences based on task type and cost
+    provider_strategies = {
+        "simple_text": {
+            "preferred_providers": ["google"],  # Cheapest for simple tasks
+            "max_cost_usd": 0.0005
+        },
+        "code_generation": {
+            "preferred_providers": ["anthropic", "openai"],  # Best quality
+            "max_cost_usd": 0.02
+        },
+        "long_context": {
+            "preferred_providers": ["google", "anthropic"],  # Best context windows
+            "max_cost_usd": 0.01
+        },
+        "reasoning": {
+            "preferred_providers": ["anthropic", "openai"],  # Best reasoning
+            "max_cost_usd": 0.03
+        }
+    }
+
+    routing = provider_strategies.get(task_type, {
+        "policy": "balanced",
+        "max_cost_usd": 0.01
+    })
+
+    response = requests.post(
+        "https://api.dev.pathfinder.naivana.io/v1/chat/completions",
+        headers={
+            "Content-Type": "application/json",
+            "X-API-Key": "your-api-key-here"
+        },
+        json={
+            "model": "auto",
+            "messages": [{"role": "user", "content": prompt}],
+            "routing": routing
+        }
+    )
+
+    return response.json()
+
+# Usage examples
+simple_result = provider_arbitrage_routing(
+    "Translate 'hello' to French",
+    "simple_text"
+)
+
+code_result = provider_arbitrage_routing(
+    "Write a Python function to sort a binary tree",
+    "code_generation"
+)
+```
+
+## Organization-Level Configuration
+
+Configure default routing behavior for your entire organization:
+
+<CodeGroup>
+
+```bash Get Configuration
+curl https://api.dev.pathfinder.naivana.io/api/v1/routing/config \
+  -H "Authorization: Bearer {access_token}"
+```
+
+```bash Update Configuration
+curl -X PUT https://api.dev.pathfinder.naivana.io/api/v1/routing/config \
+  -H "Authorization: Bearer {access_token}" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "strategy": "round_robin",
+    "enabled_providers": [
+      {"provider": "anthropic", "priority": 1, "weight": 40, "enabled": true},
+      {"provider": "google", "priority": 2, "weight": 35, "enabled": true},
+      {"provider": "openai", "priority": 3, "weight": 25, "enabled": true}
+    ]
+  }'
+```
+
+</CodeGroup>
 
 ## Best Practices
 
-1. **Set cost constraints for user-facing features**
-2. **Use cheaper models for internal tools**
-3. **Track spend per user/tenant**
-4. **Review analytics weekly**
-5. **Test prompt rewrites for cost reduction**
+<AccordionGroup>
+  <Accordion title="Set cost constraints for production">
+    Always set `max_cost_usd` to prevent unexpected costs. This ensures budget predictability.
+  </Accordion>
+
+  <Accordion title="Use cost_optimized for simple tasks">
+    Route simple queries to cheaper models like gemini-2.5-flash to maximize cost savings.
+  </Accordion>
+
+  <Accordion title="Reserve quality_first for complex tasks">
+    Use expensive models (claude-opus-4-5, gpt-5.2) only when needed for complex reasoning or critical tasks.
+  </Accordion>
+
+  <Accordion title="Monitor costs regularly">
+    Check the analytics dashboard weekly for cost trends and adjust routing strategies accordingly.
+  </Accordion>
+
+  <Accordion title="Combine constraints">
+    Use both `policy` and `max_cost_usd` for fine-grained control over routing decisions.
+  </Accordion>
+
+  <Accordion title="Test with preview">
+    Use `/v1/routes:preview` to test routing decisions before making actual completions.
+  </Accordion>
+
+  <Accordion title="Track per-tenant costs">
+    Implement per-tenant cost tracking to identify high-spend users and optimize their routing.
+  </Accordion>
+
+  <Accordion title="Use provider preferences wisely">
+    Prefer providers based on your specific use case: Google for cost, Anthropic for quality, OpenAI for broad capabilities.
+  </Accordion>
+</AccordionGroup>
 
 ## Next Steps
 
-- [API Endpoints](/docs/api/endpoints/index)
-- [Python Integration](/docs/api/guides/python-integration)
-- [Routing Decisions](/docs/api/core-concepts/routing-decisions)
+<CardGroup cols={2}>
+  <Card title="Routing Strategies" icon="route" href="/pathfinder/guides/routing-strategies">
+    Learn advanced routing strategies
+  </Card>
+  <Card title="API Reference" icon="code" href="/pathfinder/api-reference/rest/chat-completions">
+    View complete API documentation
+  </Card>
+  <Card title="Python Integration" icon="python" href="/pathfinder/guides/python-integration">
+    Integrate with Python applications
+  </Card>
+  <Card title="Dashboard" icon="chart-line" href="/pathfinder/dashboard/overview">
+    Monitor costs in the dashboard
+  </Card>
+</CardGroup>

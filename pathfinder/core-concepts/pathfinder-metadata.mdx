@@ -1,0 +1,383 @@
+---
+title: "Pathfinder Metadata"
+description: "Understanding routing metadata in API responses"
+---
+
+## Overview
+
+Every Pathfinder response includes a `pathfinder` object with routing metadata. This data helps you understand routing decisions, track costs, and debug issues.
+
+The `pathfinder` object is an extension to the standard OpenAI response format. It's automatically included in all responses and is ignored by OpenAI SDKs, so it won't break existing code.
+
+## Response Structure
+
+```json
+{
+  "id": "chatcmpl-abc123",
+  "object": "chat.completion",
+  "model": "claude-haiku-4-5",
+  "choices": [
+    {
+      "index": 0,
+      "message": {
+        "role": "assistant",
+        "content": "Hello! How can I help you?"
+      },
+      "finish_reason": "stop"
+    }
+  ],
+  "usage": {
+    "prompt_tokens": 12,
+    "completion_tokens": 10,
+    "total_tokens": 22
+  },
+  "pathfinder": {
+    "provider": "anthropic",
+    "cost_usd": 0.000042,
+    "routing_decision_id": "rd_abc123xyz",
+    "routing_latency_ms": 5,
+    "completion_latency_ms": 320,
+    "confidence": 0.95
+  }
+}
+```
+
+## Metadata Fields
+
+### provider
+
+The cloud provider that served the request.
+
+| Value | Description |
+|-------|-------------|
+| `anthropic` | Anthropic's API (Claude models) |
+| `openai` | OpenAI's API (GPT models) |
+| `google` | Google's API (Gemini models) |
+| `azure` | Azure AI Services |
+
+**Example:**
+```python
+raw = response.model_dump()
+provider = raw["pathfinder"]["provider"]
+print(f"Served by: {provider}")  # "Served by: anthropic"
+```
+
+### cost_usd
+
+The actual cost of the request in USD.
+
+**Example:**
+```python
+raw = response.model_dump()
+cost = raw["pathfinder"]["cost_usd"]
+print(f"Cost: ${cost:.6f}")  # "Cost: $0.000042"
+```
+
+**Notes:**
+- Cost is calculated based on actual token usage
+- Includes both input and output tokens
+- Updated in real-time with current pricing
+
+### routing_decision_id
+
+Unique identifier for the routing decision. Use this for:
+- Debugging routing behavior
+- Correlating logs
+- Support requests
+
+**Example:**
+```python
+raw = response.model_dump()
+decision_id = raw["pathfinder"]["routing_decision_id"]
+print(f"Decision ID: {decision_id}")  # "Decision ID: rd_abc123xyz"
+```
+
+### routing_latency_ms
+
+Time taken to make the routing decision, in milliseconds.
+
+**Example:**
+```python
+raw = response.model_dump()
+routing_ms = raw["pathfinder"]["routing_latency_ms"]
+print(f"Routing took: {routing_ms}ms")  # "Routing took: 5ms"
+```
+
+**Typical values:**
+- Cached decisions: 1-5ms
+- New decisions: 5-20ms
+
+### completion_latency_ms
+
+Time taken for the LLM to generate the response, in milliseconds.
+
+**Example:**
+```python
+raw = response.model_dump()
+completion_ms = raw["pathfinder"]["completion_latency_ms"]
+print(f"Completion took: {completion_ms}ms")  # "Completion took: 320ms"
+```
+
+### confidence
+
+Routing confidence score from 0 to 1. Higher values indicate more confident routing decisions.
+
+**Example:**
+```python
+raw = response.model_dump()
+confidence = raw["pathfinder"]["confidence"]
+print(f"Confidence: {confidence:.2%}")  # "Confidence: 95.00%"
+```
+
+## Accessing Metadata
+
+### Python (OpenAI SDK)
+
+```python
+from openai import OpenAI
+
+client = OpenAI(
+    api_key="pk_live_your-key-here",
+    base_url="https://api.pathfinder.naivana.io/v1"
+)
+
+response = client.chat.completions.create(
+    model="auto",
+    messages=[{"role": "user", "content": "Hello"}]
+)
+
+# Access via model_dump()
+raw = response.model_dump()
+pathfinder = raw.get("pathfinder", {})
+
+print(f"Provider: {pathfinder.get('provider')}")
+print(f"Cost: ${pathfinder.get('cost_usd', 0):.6f}")
+print(f"Decision ID: {pathfinder.get('routing_decision_id')}")
+print(f"Routing latency: {pathfinder.get('routing_latency_ms')}ms")
+print(f"Completion latency: {pathfinder.get('completion_latency_ms')}ms")
+```
+
+### JavaScript
+
+```javascript
+import OpenAI from 'openai';
+
+const client = new OpenAI({
+  apiKey: 'pk_live_your-key-here',
+  baseURL: 'https://api.pathfinder.naivana.io/v1'
+});
+
+const response = await client.chat.completions.create({
+  model: 'auto',
+  messages: [{ role: 'user', content: 'Hello' }]
+});
+
+// Access pathfinder metadata
+const { pathfinder } = response;
+console.log(`Provider: ${pathfinder?.provider}`);
+console.log(`Cost: $${pathfinder?.cost_usd?.toFixed(6)}`);
+console.log(`Decision ID: ${pathfinder?.routing_decision_id}`);
+```
+
+### cURL / Raw HTTP
+
+```bash
+curl -X POST https://api.pathfinder.naivana.io/v1/chat/completions \
+  -H "Authorization: Bearer pk_live_your-key-here" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "model": "auto",
+    "messages": [{"role": "user", "content": "Hello"}]
+  }' | jq '.pathfinder'
+```
+
+**Output:**
+```json
+{
+  "provider": "anthropic",
+  "cost_usd": 0.000042,
+  "routing_decision_id": "rd_abc123",
+  "routing_latency_ms": 5,
+  "completion_latency_ms": 320,
+  "confidence": 0.95
+}
+```
+
+## Use Cases
+
+### Cost Tracking
+
+Track costs across requests:
+
+```python
+total_cost = 0.0
+request_count = 0
+
+for prompt in prompts:
+    response = client.chat.completions.create(
+        model="auto",
+        messages=[{"role": "user", "content": prompt}]
+    )
+
+    raw = response.model_dump()
+    cost = raw["pathfinder"]["cost_usd"]
+    total_cost += cost
+    request_count += 1
+
+print(f"Total cost: ${total_cost:.4f}")
+print(f"Average cost: ${total_cost/request_count:.6f}")
+```
+
+### Provider Analytics
+
+Track which providers are being used:
+
+```python
+from collections import Counter
+
+provider_counts = Counter()
+provider_costs = {}
+
+for prompt in prompts:
+    response = client.chat.completions.create(
+        model="auto",
+        messages=[{"role": "user", "content": prompt}]
+    )
+
+    raw = response.model_dump()
+    provider = raw["pathfinder"]["provider"]
+    cost = raw["pathfinder"]["cost_usd"]
+
+    provider_counts[provider] += 1
+    provider_costs[provider] = provider_costs.get(provider, 0) + cost
+
+print("Provider Distribution:")
+for provider, count in provider_counts.most_common():
+    print(f"  {provider}: {count} requests, ${provider_costs[provider]:.4f}")
+```
+
+### Latency Monitoring
+
+Monitor response times:
+
+```python
+latencies = []
+
+for prompt in prompts:
+    response = client.chat.completions.create(
+        model="auto",
+        messages=[{"role": "user", "content": prompt}]
+    )
+
+    raw = response.model_dump()
+    total_latency = (
+        raw["pathfinder"]["routing_latency_ms"] +
+        raw["pathfinder"]["completion_latency_ms"]
+    )
+    latencies.append(total_latency)
+
+import statistics
+print(f"Average latency: {statistics.mean(latencies):.0f}ms")
+print(f"P95 latency: {sorted(latencies)[int(len(latencies)*0.95)]:.0f}ms")
+```
+
+### Debugging
+
+Log decision IDs for troubleshooting:
+
+```python
+import logging
+
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
+response = client.chat.completions.create(
+    model="auto",
+    messages=[{"role": "user", "content": prompt}]
+)
+
+raw = response.model_dump()
+logger.info(
+    "Request completed",
+    extra={
+        "decision_id": raw["pathfinder"]["routing_decision_id"],
+        "provider": raw["pathfinder"]["provider"],
+        "cost_usd": raw["pathfinder"]["cost_usd"],
+        "latency_ms": raw["pathfinder"]["completion_latency_ms"]
+    }
+)
+```
+
+### Verifying Routing Behavior
+
+Confirm routing policies work correctly:
+
+```python
+# Test preferred provider
+response = client.chat.completions.create(
+    model="auto",
+    messages=[{"role": "user", "content": "Hello"}],
+    extra_body={
+        "routing": {"preferred_providers": ["anthropic"]}
+    }
+)
+
+raw = response.model_dump()
+assert raw["pathfinder"]["provider"] == "anthropic", \
+    f"Expected anthropic, got {raw['pathfinder']['provider']}"
+
+# Test cost constraint
+response = client.chat.completions.create(
+    model="auto",
+    messages=[{"role": "user", "content": "Hello"}],
+    extra_body={
+        "routing": {"max_cost_usd": 0.001}
+    }
+)
+
+raw = response.model_dump()
+assert raw["pathfinder"]["cost_usd"] <= 0.001, \
+    f"Cost {raw['pathfinder']['cost_usd']} exceeds limit"
+```
+
+## Streaming Responses
+
+In streaming mode, pathfinder metadata is included in the final chunk:
+
+```python
+stream = client.chat.completions.create(
+    model="auto",
+    messages=[{"role": "user", "content": "Hello"}],
+    stream=True
+)
+
+for chunk in stream:
+    if chunk.choices[0].delta.content:
+        print(chunk.choices[0].delta.content, end="")
+
+    # Pathfinder metadata in final chunk
+    if hasattr(chunk, 'pathfinder'):
+        print(f"\nProvider: {chunk.pathfinder['provider']}")
+```
+
+## Best Practices
+
+1. **Log decision IDs** - Include `routing_decision_id` in your logs for debugging
+2. **Track costs** - Aggregate `cost_usd` for billing and budgeting
+3. **Monitor latencies** - Watch `completion_latency_ms` for performance issues
+4. **Verify routing** - Check `provider` matches your expectations when using policies
+5. **Handle missing fields** - Use `.get()` with defaults for resilience
+
+```python
+# Resilient access pattern
+raw = response.model_dump()
+pathfinder = raw.get("pathfinder", {})
+cost = pathfinder.get("cost_usd", 0)
+provider = pathfinder.get("provider", "unknown")
+```
+
+## Related Documentation
+
+- [Auto Routing](/pathfinder/core-concepts/auto-routing) - Automatic model selection
+- [Routing Policies](/pathfinder/core-concepts/routing-policies) - Control routing behavior
+- [Drop-in Compatibility](/pathfinder/core-concepts/drop-in-compatibility) - OpenAI SDK compatibility

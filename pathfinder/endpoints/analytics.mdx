@@ -1,0 +1,585 @@
+---
+title: "Analytics Endpoints"
+description: "Spending analytics, usage metrics, and cost tracking endpoints"
+---
+
+## Overview
+
+The Analytics API provides comprehensive spending analytics, usage metrics, and cost tracking capabilities. Monitor your API usage, track costs by provider and model, set spending limits, and forecast future spending.
+
+**Authentication**: All analytics endpoints require JWT token from dashboard login.
+
+---
+
+## GET /api/v1/routing/analytics/cost-by-provider
+
+Get cost analytics aggregated by cloud provider for a specified time range.
+
+### Endpoint
+
+```
+GET https://api.pathfinder.naivana.io/api/v1/routing/analytics/cost-by-provider
+```
+
+### Query Parameters
+
+| Parameter | Type | Required | Default | Options | Description |
+|-----------|------|----------|---------|---------|-------------|
+| `time_range` | string | No | `"30d"` | `7d`, `30d`, `90d` | Time range for analytics |
+
+### Response (200 OK)
+
+```json
+{
+  "providers": [
+    {
+      "provider": "anthropic",
+      "total_cost_usd": 125.50,
+      "total_requests": 45000,
+      "total_input_tokens": 15000000,
+      "total_output_tokens": 8000000,
+      "avg_latency_ms": 520.5,
+      "cost_per_request": 0.00279
+    },
+    {
+      "provider": "openai",
+      "total_cost_usd": 85.25,
+      "total_requests": 28000,
+      "total_input_tokens": 10000000,
+      "total_output_tokens": 5500000,
+      "avg_latency_ms": 420.3,
+      "cost_per_request": 0.00304
+    },
+    {
+      "provider": "google",
+      "total_cost_usd": 45.80,
+      "total_requests": 22000,
+      "total_input_tokens": 8000000,
+      "total_output_tokens": 4000000,
+      "avg_latency_ms": 380.1,
+      "cost_per_request": 0.00208
+    }
+  ],
+  "time_range": "30d",
+  "total_cost_usd": 256.55,
+  "estimated_single_provider_cost_usd": 342.50,
+  "savings_usd": 85.95,
+  "savings_percentage": 25.1
+}
+```
+
+### Response Fields
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `providers` | array | Per-provider cost breakdown |
+| `time_range` | string | Requested time range |
+| `total_cost_usd` | number | Total cost across all providers |
+| `estimated_single_provider_cost_usd` | number | Estimated cost using single highest-cost provider |
+| `savings_usd` | number | Cost savings from multi-provider routing |
+| `savings_percentage` | number | Percentage savings |
+
+### Provider Analytics Fields
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `provider` | string | Provider name |
+| `total_cost_usd` | number | Total cost for this provider |
+| `total_requests` | integer | Number of requests |
+| `total_input_tokens` | integer | Total input tokens consumed |
+| `total_output_tokens` | integer | Total output tokens generated |
+| `avg_latency_ms` | number | Average response latency |
+| `cost_per_request` | number | Average cost per request |
+
+---
+
+## GET /api/v1/dashboard/spending/summary
+
+Get a high-level spending summary for the dashboard widget.
+
+### Endpoint
+
+```
+GET https://api.pathfinder.naivana.io/api/v1/dashboard/spending/summary
+```
+
+### Response (200 OK)
+
+```json
+{
+  "current_month_spend_usd": 256.55,
+  "previous_month_spend_usd": 198.30,
+  "month_over_month_change_percentage": 29.4,
+  "active_limits_count": 3,
+  "limits_at_risk_count": 1,
+  "recent_alerts_count": 2,
+  "projected_end_of_month_usd": 412.50,
+  "top_vendor": "anthropic",
+  "top_model": "claude-sonnet-4-5-20250929"
+}
+```
+
+### Response Fields
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `current_month_spend_usd` | number | Spending so far this month |
+| `previous_month_spend_usd` | number | Total spending last month |
+| `month_over_month_change_percentage` | number | Percentage change MoM |
+| `active_limits_count` | integer | Number of active spending limits |
+| `limits_at_risk_count` | integer | Limits at >80% usage |
+| `recent_alerts_count` | integer | Alerts in last 7 days |
+| `projected_end_of_month_usd` | number | Linear projection to month end |
+| `top_vendor` | string | Highest spend provider |
+| `top_model` | string | Highest spend model |
+
+---
+
+## GET /api/v1/dashboard/models/statistics
+
+Get usage statistics for models.
+
+### Endpoint
+
+```
+GET https://api.pathfinder.naivana.io/api/v1/dashboard/models/statistics
+```
+
+### Response (200 OK)
+
+```json
+{
+  "models": [
+    {
+      "model_id": "claude-sonnet-4-5-20250929",
+      "provider": "anthropic",
+      "total_requests": 25000,
+      "total_cost_usd": 75.50,
+      "avg_latency_ms": 520,
+      "avg_input_tokens": 350,
+      "avg_output_tokens": 180
+    },
+    {
+      "model_id": "gpt-5.1",
+      "provider": "openai",
+      "total_requests": 18000,
+      "total_cost_usd": 54.25,
+      "avg_latency_ms": 420,
+      "avg_input_tokens": 280,
+      "avg_output_tokens": 150
+    }
+  ],
+  "time_range": "30d"
+}
+```
+
+### Response Fields
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `models` | array | Model usage statistics |
+| `time_range` | string | Time range for statistics (default: 30d) |
+
+### Model Statistics Fields
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `model_id` | string | Model identifier |
+| `provider` | string | Provider name |
+| `total_requests` | integer | Total requests to this model |
+| `total_cost_usd` | number | Total cost for this model |
+| `avg_latency_ms` | number | Average latency in milliseconds |
+| `avg_input_tokens` | number | Average input tokens per request |
+| `avg_output_tokens` | number | Average output tokens per request |
+
+---
+
+## GET /api/v1/organizations/me/subscription-usage
+
+Get subscription usage summary for the current organization.
+
+### Endpoint
+
+```
+GET https://api.pathfinder.naivana.io/api/v1/organizations/me/subscription-usage
+```
+
+### Response (200 OK)
+
+```json
+{
+  "organization_id": "550e8400-e29b-41d4-a716-446655440000",
+  "subscription_tier": "pro",
+  "billing_period_start": "2025-01-01T00:00:00Z",
+  "billing_period_end": "2025-01-31T23:59:59Z",
+  "usage": {
+    "requests_used": 95000,
+    "requests_limit": null,
+    "tokens_used": 45000000,
+    "tokens_limit": null,
+    "cost_usd": 256.55,
+    "cost_limit_usd": 500.00
+  },
+  "features": {
+    "round_robin_routing": true,
+    "cost_optimized_routing": true,
+    "spending_limits": true,
+    "advanced_analytics": true
+  }
+}
+```
+
+### Response Fields
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `organization_id` | string | Organization UUID |
+| `subscription_tier` | string | Current subscription tier (free, pro, enterprise) |
+| `billing_period_start` | string | Billing period start (ISO 8601) |
+| `billing_period_end` | string | Billing period end (ISO 8601) |
+| `usage` | object | Usage statistics for current period |
+| `features` | object | Enabled features for subscription |
+
+### Usage Fields
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `requests_used` | integer | Requests used in billing period |
+| `requests_limit` | integer\|null | Request limit (null = unlimited) |
+| `tokens_used` | integer | Tokens used in billing period |
+| `tokens_limit` | integer\|null | Token limit (null = unlimited) |
+| `cost_usd` | number | Total cost in billing period |
+| `cost_limit_usd` | number\|null | Cost limit (null = unlimited) |
+
+---
+
+## GET /api/v1/dashboard/spending/metrics
+
+Get detailed spending metrics with breakdowns by vendor, model, and user.
+
+### Endpoint
+
+```
+GET https://api.pathfinder.naivana.io/api/v1/dashboard/spending/metrics
+```
+
+### Query Parameters
+
+| Parameter | Type | Required | Default | Description |
+|-----------|------|----------|---------|-------------|
+| `period_type` | string | No | `"monthly"` | Time period: `daily`, `weekly`, `monthly` |
+| `start_date` | datetime | No | - | Custom start date (ISO 8601) |
+| `end_date` | datetime | No | - | Custom end date (ISO 8601) |
+
+### Response (200 OK)
+
+```json
+{
+  "organization_id": "550e8400-e29b-41d4-a716-446655440000",
+  "period_type": "monthly",
+  "period_start": "2025-01-01T00:00:00Z",
+  "period_end": "2025-01-31T23:59:59Z",
+  "total_spend_usd": 256.55,
+  "total_requests": 95000,
+  "total_input_tokens": 35000000,
+  "total_output_tokens": 18000000,
+  "avg_cost_per_request": 0.0027,
+  "spend_by_vendor": {
+    "anthropic": 125.50,
+    "openai": 85.25,
+    "google": 45.80
+  },
+  "spend_by_model": {
+    "claude-sonnet-4-5-20250929": 75.50,
+    "gpt-5.1": 54.25,
+    "gemini-2.5-flash": 35.20
+  },
+  "spend_by_user": {
+    "user-uuid-1": 120.00,
+    "user-uuid-2": 85.50
+  },
+  "daily_spend_trend": [
+    {"date": "2025-01-01", "spend": "8.50"},
+    {"date": "2025-01-02", "spend": "12.30"},
+    {"date": "2025-01-03", "spend": "9.80"}
+  ]
+}
+```
+
+### Response Fields
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `organization_id` | string | Organization UUID |
+| `period_type` | string | Time period type |
+| `period_start` | string | Period start timestamp (ISO 8601) |
+| `period_end` | string | Period end timestamp (ISO 8601) |
+| `total_spend_usd` | number | Total spending in period |
+| `total_requests` | integer | Total number of requests |
+| `total_input_tokens` | integer | Total input tokens |
+| `total_output_tokens` | integer | Total output tokens |
+| `avg_cost_per_request` | number | Average cost per request |
+| `spend_by_vendor` | object | Spending breakdown by provider |
+| `spend_by_model` | object | Spending breakdown by model |
+| `spend_by_user` | object | Spending breakdown by user (Enterprise only) |
+| `daily_spend_trend` | array | Daily spending trend data |
+
+---
+
+## GET /api/v1/dashboard/spending/limits
+
+List all spending limits for the organization.
+
+### Endpoint
+
+```
+GET https://api.pathfinder.naivana.io/api/v1/dashboard/spending/limits
+```
+
+### Query Parameters
+
+| Parameter | Type | Required | Default | Description |
+|-----------|------|----------|---------|-------------|
+| `include_progress` | boolean | No | `true` | Include current spend progress |
+
+### Response (200 OK)
+
+```json
+{
+  "limits": [
+    {
+      "id": "550e8400-e29b-41d4-a716-446655440000",
+      "limit_type": "overall",
+      "limit_scope_id": null,
+      "period_type": "monthly",
+      "hard_limit_usd": 500.00,
+      "soft_alert_threshold_usd": 400.00,
+      "current_spend_usd": 256.55,
+      "soft_alert_percentage": 64.14,
+      "hard_limit_percentage": 51.31,
+      "is_over_soft_alert": false,
+      "is_over_hard_limit": false,
+      "is_active": true,
+      "created_at": "2025-01-01T00:00:00Z"
+    }
+  ],
+  "total": 1
+}
+```
+
+### Response Fields
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `limits` | array | Array of spending limit objects |
+| `total` | integer | Total number of limits |
+
+### Limit Object Fields
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `id` | string | Limit UUID |
+| `limit_type` | string | Type: `overall`, `vendor`, `model`, `user` |
+| `limit_scope_id` | string\|null | Scope identifier (vendor/model/user ID) |
+| `period_type` | string | Period: `daily`, `weekly`, `monthly` |
+| `hard_limit_usd` | number | Hard limit amount in USD |
+| `soft_alert_threshold_usd` | number | Soft alert threshold in USD |
+| `current_spend_usd` | number | Current spending in period |
+| `soft_alert_percentage` | number | Percentage of soft alert reached |
+| `hard_limit_percentage` | number | Percentage of hard limit reached |
+| `is_over_soft_alert` | boolean | Whether soft alert is triggered |
+| `is_over_hard_limit` | boolean | Whether hard limit is exceeded |
+| `is_active` | boolean | Whether limit is active |
+| `created_at` | string | Creation timestamp (ISO 8601) |
+
+### Limit Types
+
+| Type | Description |
+|------|-------------|
+| `overall` | Organization-wide limit |
+| `vendor` | Per-provider limit |
+| `model` | Per-model limit |
+| `user` | Per-user limit (Enterprise only) |
+
+---
+
+## POST /api/v1/dashboard/spending/forecast
+
+Get spending forecast based on current usage patterns.
+
+### Endpoint
+
+```
+POST https://api.pathfinder.naivana.io/api/v1/dashboard/spending/forecast
+```
+
+### Request Body
+
+```json
+{
+  "forecast_days": 30,
+  "include_confidence_interval": true
+}
+```
+
+### Parameters
+
+| Parameter | Type | Required | Default | Description |
+|-----------|------|----------|---------|-------------|
+| `forecast_days` | integer | No | 30 | Number of days to forecast |
+| `include_confidence_interval` | boolean | No | `false` | Include confidence bounds |
+
+### Response (200 OK)
+
+```json
+{
+  "organization_id": "550e8400-e29b-41d4-a716-446655440000",
+  "forecast_end_date": "2025-02-05T00:00:00Z",
+  "projected_spend_usd": 412.50,
+  "confidence_low_usd": 330.00,
+  "confidence_high_usd": 495.00,
+  "daily_average_spend": 8.55,
+  "trend_direction": "increasing",
+  "trend_percentage": 15.2,
+  "limits_at_risk": [
+    {
+      "limit_id": "550e8400-e29b-41d4-a716-446655440000",
+      "limit_type": "overall",
+      "limit_scope_id": null,
+      "limit_usd": "500.00",
+      "current_spend_usd": "256.55",
+      "projected_breach_date": "2025-01-28"
+    }
+  ]
+}
+```
+
+### Response Fields
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `organization_id` | string | Organization UUID |
+| `forecast_end_date` | string | End date of forecast (ISO 8601) |
+| `projected_spend_usd` | number | Linear projection of spending |
+| `confidence_low_usd` | number | Lower bound (80% CI) |
+| `confidence_high_usd` | number | Upper bound (80% CI) |
+| `daily_average_spend` | number | Current daily average spend |
+| `trend_direction` | string | `increasing`, `decreasing`, or `stable` |
+| `trend_percentage` | number | Week-over-week change percentage |
+| `limits_at_risk` | array | Limits projected to be exceeded |
+
+---
+
+## Examples
+
+### cURL - Cost by Provider
+
+```bash
+curl "https://api.pathfinder.naivana.io/api/v1/routing/analytics/cost-by-provider?time_range=30d" \
+  -H "Authorization: Bearer $JWT_TOKEN"
+```
+
+### cURL - Spending Summary
+
+```bash
+curl https://api.pathfinder.naivana.io/api/v1/dashboard/spending/summary \
+  -H "Authorization: Bearer $JWT_TOKEN"
+```
+
+### cURL - Model Statistics
+
+```bash
+curl https://api.pathfinder.naivana.io/api/v1/dashboard/models/statistics \
+  -H "Authorization: Bearer $JWT_TOKEN"
+```
+
+### cURL - Spending Forecast
+
+```bash
+curl -X POST https://api.pathfinder.naivana.io/api/v1/dashboard/spending/forecast \
+  -H "Authorization: Bearer $JWT_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "forecast_days": 30,
+    "include_confidence_interval": true
+  }'
+```
+
+### Python - Dashboard Analytics
+
+```python
+import requests
+
+BASE_URL = "https://api.pathfinder.naivana.io"
+headers = {"Authorization": f"Bearer {jwt_token}"}
+
+# Get spending summary
+summary = requests.get(
+    f"{BASE_URL}/api/v1/dashboard/spending/summary",
+    headers=headers
+).json()
+
+print(f"Current month: ${summary['current_month_spend_usd']:.2f}")
+print(f"Projected: ${summary['projected_end_of_month_usd']:.2f}")
+print(f"Limits at risk: {summary['limits_at_risk_count']}")
+
+# Get cost breakdown
+costs = requests.get(
+    f"{BASE_URL}/api/v1/routing/analytics/cost-by-provider",
+    headers=headers,
+    params={"time_range": "30d"}
+).json()
+
+print(f"\nCost by Provider:")
+for p in costs['providers']:
+    print(f"  {p['provider']}: ${p['total_cost_usd']:.2f} ({p['total_requests']} requests)")
+
+print(f"\nSavings from multi-provider routing: ${costs['savings_usd']:.2f} ({costs['savings_percentage']:.1f}%)")
+```
+
+### Node.js - Get Spending Metrics
+
+```javascript
+const BASE_URL = "https://api.pathfinder.naivana.io";
+
+const response = await fetch(`${BASE_URL}/api/v1/dashboard/spending/metrics?period_type=monthly`, {
+  headers: {
+    'Authorization': `Bearer ${jwtToken}`
+  }
+});
+
+const metrics = await response.json();
+
+console.log(`Total spend: $${metrics.total_spend_usd}`);
+console.log(`Total requests: ${metrics.total_requests}`);
+console.log('\nSpend by vendor:');
+Object.entries(metrics.spend_by_vendor).forEach(([vendor, cost]) => {
+  console.log(`  ${vendor}: $${cost}`);
+});
+```
+
+---
+
+## Tier Requirements
+
+| Feature | Free | Pro | Enterprise |
+|---------|------|-----|------------|
+| Cost by provider | ✓ | ✓ | ✓ |
+| Spending summary | ✓ | ✓ | ✓ |
+| Model statistics | ✓ | ✓ | ✓ |
+| Spending limits | - | ✓ | ✓ |
+| Spending forecast | - | ✓ | ✓ |
+| Per-user analytics | - | - | ✓ |
+| Custom date ranges | - | ✓ | ✓ |
+
+## Data Retention
+
+- Analytics data is retained for 90 days
+- Aggregated monthly data is retained for 2 years
+- Raw request data used for analytics is privacy-first (no prompt content stored)
+
+## Next Steps
+
+- [Dashboard Analytics Guide](/pathfinder/dashboard/analytics)
+- [Setting Up Spending Limits](/pathfinder/dashboard/overview)
+- [Error Handling](/pathfinder/guides/error-handling)
