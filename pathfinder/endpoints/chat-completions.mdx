@@ -1,0 +1,581 @@
+---
+title: "POST /v1/chat/completions"
+description: "OpenAI-compatible chat completions endpoint with intelligent routing"
+---
+
+## Endpoint
+
+```
+POST https://api.pathfinder.naivana.io/v1/chat/completions
+```
+
+## Description
+
+This endpoint provides full compatibility with the OpenAI SDK while adding Pathfinder-specific routing capabilities. Use `model: "auto"` for intelligent routing, or specify a model directly.
+
+**Privacy Note**: Your prompts are handled according to your provider key configuration. When using your own API keys, data goes directly to your chosen provider without intermediary storage.
+
+## Authentication
+
+Requires one of:
+- **API Key**: `Authorization: Bearer sk-xxx` (organization API key)
+- **JWT Token**: `Authorization: Bearer <jwt>` (dashboard user token)
+
+## Request
+
+### Headers
+
+```http
+Content-Type: application/json
+Authorization: Bearer sk-your-pathfinder-key
+```
+
+### Request Body
+
+```json
+{
+  "model": "auto",
+  "messages": [
+    {"role": "system", "content": "You are a helpful assistant."},
+    {"role": "user", "content": "Hello!"}
+  ],
+  "temperature": 0.7,
+  "max_tokens": 1000,
+  "stream": false,
+  "routing": {
+    "policy": "auto",
+    "max_cost_usd": 0.01,
+    "require_capabilities": ["coding"],
+    "preferred_providers": ["anthropic"]
+  }
+}
+```
+
+### Parameters
+
+| Parameter | Type | Required | Default | Description |
+|-----------|------|----------|---------|-------------|
+| `model` | string | Yes | `"auto"` | Model ID or `"auto"` for intelligent routing |
+| `messages` | array | Yes | - | List of message objects (role + content) |
+| `temperature` | number | No | `0.7` | Sampling temperature (0.0 to 2.0) |
+| `max_tokens` | integer | No | - | Maximum tokens to generate |
+| `top_p` | number | No | - | Nucleus sampling parameter (0.0 to 1.0) |
+| `stop` | string/array | No | - | Stop sequences |
+| `stream` | boolean | No | `false` | Enable streaming response |
+| `presence_penalty` | number | No | - | Presence penalty (-2.0 to 2.0) |
+| `frequency_penalty` | number | No | - | Frequency penalty (-2.0 to 2.0) |
+| `n` | integer | No | `1` | Number of completions (only 1 supported) |
+| `user` | string | No | - | Unique user identifier for abuse detection |
+| `routing` | object | No | - | Pathfinder routing hints (see below) |
+
+### Message Object
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `role` | string | Yes | `system`, `user`, `assistant`, `tool`, or `function` |
+| `content` | string | Yes | Message content (cannot be empty) |
+| `name` | string | No | Optional name for the message author |
+
+### Routing Hints Object
+
+| Field | Type | Default | Description |
+|-------|------|---------|-------------|
+| `policy` | string | `"auto"` | Routing policy: `auto`, `cost_optimized`, `quality_first`, `latency_first` |
+| `max_cost_usd` | number | - | Maximum acceptable cost per request (0.0 to 100.0) |
+| `require_capabilities` | array | - | Required capabilities: `reasoning`, `coding`, `vision`, `math`, etc. |
+| `preferred_providers` | array | - | Preferred providers: `anthropic`, `openai`, `google` |
+| `exclude_providers` | array | - | Providers to exclude |
+| `exclude_models` | array | - | Model IDs to exclude |
+| `min_quality_score` | number | - | Minimum quality score (0.0 to 1.0) |
+| `reasoning_effort` | string | - | GPT-5.1+ reasoning effort: `none`, `low`, `medium`, `high`, `xhigh` |
+| `verbosity` | string | - | GPT-5.1+ verbosity: `low`, `medium`, `high` |
+| `enable_compression` | boolean | `false` | Enable prompt compression |
+
+## Response
+
+### Non-Streaming Response
+
+```json
+{
+  "id": "pf-abc123def456",
+  "object": "chat.completion",
+  "created": 1732665600,
+  "model": "claude-sonnet-4-5-20250929",
+  "choices": [
+    {
+      "index": 0,
+      "message": {
+        "role": "assistant",
+        "content": "Hello! How can I help you today?"
+      },
+      "finish_reason": "stop"
+    }
+  ],
+  "usage": {
+    "prompt_tokens": 12,
+    "completion_tokens": 8,
+    "total_tokens": 20
+  },
+  "pathfinder": {
+    "routing_decision_id": "550e8400-e29b-41d4-a716-446655440000",
+    "proxy_completion_id": "660e8400-e29b-41d4-a716-446655440001",
+    "provider": "anthropic",
+    "routing_latency_ms": 45,
+    "completion_latency_ms": 1250,
+    "total_latency_ms": 1295,
+    "confidence": 0.92,
+    "cost_usd": 0.00023,
+    "fallback_used": false,
+    "fallback_reason": null,
+    "key_source": "own",
+    "credit_deducted_usd": null,
+    "remaining_balance_usd": null
+  }
+}
+```
+
+### Response Fields
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `id` | string | Unique completion ID (pf-xxx) |
+| `object` | string | Always `"chat.completion"` |
+| `created` | integer | Unix timestamp |
+| `model` | string | Model that generated the response |
+| `choices` | array | Completion choices |
+| `usage` | object | Token usage statistics |
+| `pathfinder` | object | Pathfinder-specific metadata |
+
+### Pathfinder Metadata
+
+The `pathfinder` object contains detailed routing and performance metrics:
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `routing_decision_id` | string | Unique routing decision ID |
+| `proxy_completion_id` | string | Unique completion record ID |
+| `provider` | string | Provider that generated the response |
+| `routing_latency_ms` | integer | Time spent on routing decision |
+| `completion_latency_ms` | integer | Time spent on LLM call |
+| `total_latency_ms` | integer | Total request time |
+| `confidence` | number | Model selection confidence (0.0-1.0) |
+| `cost_usd` | number | Estimated cost in USD |
+| `fallback_used` | boolean | Whether a fallback model was used |
+| `fallback_reason` | string | Reason for fallback (if applicable) |
+| `key_source` | string | `"own"` (user's key) or `"pathfinder"` (managed key) |
+| `credit_deducted_usd` | number | Credits deducted (when using Pathfinder keys) |
+| `remaining_balance_usd` | number | Remaining balance (when using Pathfinder keys) |
+
+## Streaming
+
+Set `stream: true` to receive Server-Sent Events (SSE) instead of a single JSON response.
+
+### Streaming Response Format
+
+```
+data: {"id":"pf-xxx","object":"chat.completion.chunk","created":1732665600,"model":"claude-sonnet-4-5-20250929","choices":[{"index":0,"delta":{"role":"assistant"},"finish_reason":null}]}
+
+data: {"id":"pf-xxx","object":"chat.completion.chunk","created":1732665600,"model":"claude-sonnet-4-5-20250929","choices":[{"index":0,"delta":{"content":"Hello"},"finish_reason":null}]}
+
+data: {"id":"pf-xxx","object":"chat.completion.chunk","created":1732665600,"model":"claude-sonnet-4-5-20250929","choices":[{"index":0,"delta":{"content":" world"},"finish_reason":null}]}
+
+data: {"id":"pf-xxx","object":"chat.completion.chunk","created":1732665600,"model":"claude-sonnet-4-5-20250929","choices":[{"index":0,"delta":{},"finish_reason":"stop"}],"usage":{"prompt_tokens":12,"completion_tokens":8,"total_tokens":20},"pathfinder":{"routing_decision_id":"...","provider":"anthropic","time_to_first_token_ms":150,"cost_usd":0.00023}}
+
+data: [DONE]
+```
+
+### Streaming Pathfinder Metadata
+
+The final chunk includes all standard metadata plus:
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `time_to_first_token_ms` | integer | Time to first token from provider |
+
+## Error Responses
+
+### 400 Bad Request
+
+```json
+{
+  "error": {
+    "message": "Invalid request: messages cannot be empty",
+    "type": "invalid_request_error",
+    "param": "messages",
+    "code": "invalid_request"
+  }
+}
+```
+
+### 401 Unauthorized
+
+```json
+{
+  "error": {
+    "message": "Invalid API key",
+    "type": "invalid_api_key",
+    "code": "invalid_api_key"
+  }
+}
+```
+
+### 429 Too Many Requests
+
+```json
+{
+  "error": {
+    "message": "Spending limit exceeded",
+    "type": "spending_limit_exceeded",
+    "code": "spending_limit_exceeded"
+  }
+}
+```
+
+### 502 Bad Gateway
+
+```json
+{
+  "error": {
+    "message": "Provider error: API timeout",
+    "type": "provider_error",
+    "code": "provider_error"
+  }
+}
+```
+
+## Examples
+
+### Basic Request with OpenAI SDK
+
+<CodeGroup>
+
+```python Python
+from openai import OpenAI
+
+client = OpenAI(
+    api_key="sk-your-pathfinder-key",
+    base_url="https://api.pathfinder.naivana.io/v1"
+)
+
+response = client.chat.completions.create(
+    model="auto",
+    messages=[{"role": "user", "content": "Hello!"}]
+)
+
+print(response.choices[0].message.content)
+print(f"Provider: {response.pathfinder.provider}")
+print(f"Cost: ${response.pathfinder.cost_usd}")
+```
+
+```javascript JavaScript
+import OpenAI from 'openai';
+
+const client = new OpenAI({
+  apiKey: 'sk-your-pathfinder-key',
+  baseURL: 'https://api.pathfinder.naivana.io/v1'
+});
+
+const response = await client.chat.completions.create({
+  model: 'auto',
+  messages: [{ role: 'user', content: 'Hello!' }]
+});
+
+console.log(response.choices[0].message.content);
+console.log(`Provider: ${response.pathfinder.provider}`);
+console.log(`Cost: $${response.pathfinder.cost_usd}`);
+```
+
+```bash cURL
+curl -X POST https://api.pathfinder.naivana.io/v1/chat/completions \
+  -H "Authorization: Bearer sk-your-api-key" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "model": "auto",
+    "messages": [
+      {"role": "user", "content": "Hello!"}
+    ]
+  }'
+```
+
+</CodeGroup>
+
+### Auto Routing with Model: "auto"
+
+<CodeGroup>
+
+```python Python
+response = client.chat.completions.create(
+    model="auto",  # Pathfinder selects best model
+    messages=[
+        {"role": "system", "content": "You are a helpful coding assistant."},
+        {"role": "user", "content": "Write a sorting function in Python"}
+    ]
+)
+
+# Pathfinder automatically selects the best model for coding tasks
+print(f"Selected model: {response.model}")
+print(response.choices[0].message.content)
+```
+
+```javascript JavaScript
+const response = await client.chat.completions.create({
+  model: 'auto',  // Pathfinder selects best model
+  messages: [
+    { role: 'system', content: 'You are a helpful coding assistant.' },
+    { role: 'user', content: 'Write a sorting function in Python' }
+  ]
+});
+
+// Pathfinder automatically selects the best model for coding tasks
+console.log(`Selected model: ${response.model}`);
+console.log(response.choices[0].message.content);
+```
+
+```bash cURL
+curl -X POST https://api.pathfinder.naivana.io/v1/chat/completions \
+  -H "Authorization: Bearer sk-your-api-key" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "model": "auto",
+    "messages": [
+      {"role": "system", "content": "You are a helpful coding assistant."},
+      {"role": "user", "content": "Write a sorting function in Python"}
+    ]
+  }'
+```
+
+</CodeGroup>
+
+### With Routing Hints
+
+<CodeGroup>
+
+```python Python
+response = client.chat.completions.create(
+    model="auto",
+    messages=[{"role": "user", "content": "Write a sorting function"}],
+    extra_body={
+        "routing": {
+            "policy": "cost_optimized",
+            "require_capabilities": ["coding"],
+            "max_cost_usd": 0.01,
+            "preferred_providers": ["anthropic"]
+        }
+    }
+)
+
+print(f"Model: {response.model}")
+print(f"Provider: {response.pathfinder.provider}")
+print(f"Cost: ${response.pathfinder.cost_usd}")
+```
+
+```javascript JavaScript
+const response = await client.chat.completions.create({
+  model: 'auto',
+  messages: [{ role: 'user', content: 'Write a sorting function' }],
+  routing: {
+    policy: 'cost_optimized',
+    require_capabilities: ['coding'],
+    max_cost_usd: 0.01,
+    preferred_providers: ['anthropic']
+  }
+});
+
+console.log(`Model: ${response.model}`);
+console.log(`Provider: ${response.pathfinder.provider}`);
+console.log(`Cost: $${response.pathfinder.cost_usd}`);
+```
+
+```bash cURL
+curl -X POST https://api.pathfinder.naivana.io/v1/chat/completions \
+  -H "Authorization: Bearer sk-your-api-key" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "model": "auto",
+    "messages": [{"role": "user", "content": "Write a sorting function"}],
+    "routing": {
+      "policy": "cost_optimized",
+      "require_capabilities": ["coding"],
+      "max_cost_usd": 0.01,
+      "preferred_providers": ["anthropic"]
+    }
+  }'
+```
+
+</CodeGroup>
+
+### Streaming
+
+<CodeGroup>
+
+```python Python
+stream = client.chat.completions.create(
+    model="auto",
+    messages=[{"role": "user", "content": "Count from 1 to 5"}],
+    stream=True
+)
+
+for chunk in stream:
+    if chunk.choices[0].delta.content:
+        print(chunk.choices[0].delta.content, end="", flush=True)
+
+# Final chunk includes pathfinder metadata
+if hasattr(chunk, 'pathfinder'):
+    print(f"\nProvider: {chunk.pathfinder.provider}")
+    print(f"TTFT: {chunk.pathfinder.time_to_first_token_ms}ms")
+```
+
+```javascript JavaScript
+const stream = await client.chat.completions.create({
+  model: 'auto',
+  messages: [{ role: 'user', content: 'Count from 1 to 5' }],
+  stream: true
+});
+
+for await (const chunk of stream) {
+  if (chunk.choices[0]?.delta?.content) {
+    process.stdout.write(chunk.choices[0].delta.content);
+  }
+
+  // Final chunk includes pathfinder metadata
+  if (chunk.pathfinder) {
+    console.log(`\nProvider: ${chunk.pathfinder.provider}`);
+    console.log(`TTFT: ${chunk.pathfinder.time_to_first_token_ms}ms`);
+  }
+}
+```
+
+```bash cURL
+curl -X POST https://api.pathfinder.naivana.io/v1/chat/completions \
+  -H "Authorization: Bearer sk-your-api-key" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "model": "auto",
+    "messages": [{"role": "user", "content": "Count from 1 to 5"}],
+    "stream": true
+  }'
+```
+
+</CodeGroup>
+
+### Specific Model
+
+<CodeGroup>
+
+```python Python
+# Use a specific model instead of auto-routing
+response = client.chat.completions.create(
+    model="claude-haiku-4-5",
+    messages=[{"role": "user", "content": "Quick answer: what is 2+2?"}]
+)
+
+print(response.choices[0].message.content)
+```
+
+```javascript JavaScript
+// Use a specific model instead of auto-routing
+const response = await client.chat.completions.create({
+  model: 'claude-haiku-4-5',
+  messages: [{ role: 'user', content: 'Quick answer: what is 2+2?' }]
+});
+
+console.log(response.choices[0].message.content);
+```
+
+```bash cURL
+curl -X POST https://api.pathfinder.naivana.io/v1/chat/completions \
+  -H "Authorization: Bearer sk-your-api-key" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "model": "claude-haiku-4-5",
+    "messages": [{"role": "user", "content": "Quick answer: what is 2+2?"}]
+  }'
+```
+
+</CodeGroup>
+
+### Advanced Routing Configuration
+
+<CodeGroup>
+
+```python Python
+response = client.chat.completions.create(
+    model="auto",
+    messages=[{"role": "user", "content": "Solve this complex math problem..."}],
+    extra_body={
+        "routing": {
+            "policy": "quality_first",
+            "require_capabilities": ["reasoning", "math"],
+            "min_quality_score": 0.9,
+            "exclude_providers": ["google"],
+            "reasoning_effort": "high"  # For GPT-5.1+
+        }
+    }
+)
+```
+
+```javascript JavaScript
+const response = await client.chat.completions.create({
+  model: 'auto',
+  messages: [{ role: 'user', content: 'Solve this complex math problem...' }],
+  routing: {
+    policy: 'quality_first',
+    require_capabilities: ['reasoning', 'math'],
+    min_quality_score: 0.9,
+    exclude_providers: ['google'],
+    reasoning_effort: 'high'  // For GPT-5.1+
+  }
+});
+```
+
+```bash cURL
+curl -X POST https://api.pathfinder.naivana.io/v1/chat/completions \
+  -H "Authorization: Bearer sk-your-api-key" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "model": "auto",
+    "messages": [{"role": "user", "content": "Solve this complex math problem..."}],
+    "routing": {
+      "policy": "quality_first",
+      "require_capabilities": ["reasoning", "math"],
+      "min_quality_score": 0.9,
+      "exclude_providers": ["google"],
+      "reasoning_effort": "high"
+    }
+  }'
+```
+
+</CodeGroup>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card
+    title="Routing Strategies"
+    icon="route"
+    href="/pathfinder/guides/routing-strategies"
+  >
+    Learn about different routing policies
+  </Card>
+  <Card
+    title="POST /routes:decide"
+    icon="gauge"
+    href="/pathfinder/endpoints/routing-decision"
+  >
+    Preview routing decisions without calling LLM
+  </Card>
+  <Card
+    title="Available Models"
+    icon="brain"
+    href="/pathfinder/api-reference/models-list"
+  >
+    Browse all supported models
+  </Card>
+  <Card
+    title="Error Handling"
+    icon="shield-halved"
+    href="/pathfinder/guides/error-handling"
+  >
+    Handle errors and implement retries
+  </Card>
+</CardGroup>

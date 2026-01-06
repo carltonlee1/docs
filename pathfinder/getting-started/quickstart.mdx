@@ -5,20 +5,20 @@ description: "Get your first routing decision in 5 minutes"
 
 ## Quickstart
 
-Let's make your first routing decision in less than 5 minutes.
+Pathfinder is **100% OpenAI-compatible**. Just change your base URL and you're done! Let's make your first API call in less than 5 minutes.
 
 ### Prerequisites
 
 You need:
-- An API key (get one [here](https://dashboard.pathfinder.ai/api-keys))
-- A tool to make HTTP requests (cURL, Postman, or your favorite language)
+- An API key (get one [here](https://dashboard.pathfinder.naivana.io/api-keys))
+- Python, Node.js, or cURL
 
 ### Step 1: Get Your API Key
 
-1. Go to [dashboard.pathfinder.ai](https://dashboard.pathfinder.ai)
+1. Go to [dashboard.pathfinder.naivana.io](https://dashboard.pathfinder.naivana.io)
 2. Navigate to **API Keys**
 3. Click **Create New Key**
-4. Copy the key (starts with `sk_live_`)
+4. Copy the key (starts with `pk_live_` or `pk_test_`)
 
 <Warning>
 Keep your API key secret! Never commit it to Git or share it publicly.
@@ -29,56 +29,81 @@ Keep your API key secret! Never commit it to Git or share it publicly.
 Choose your preferred method:
 
 <Tabs>
-  <Tab title="cURL">
-    ```bash
-    curl -X POST https://api.pathfinder.ai/v1/routes:decide \
-      -H "Authorization: Bearer sk_live_YOUR_API_KEY" \
-      -H "Content-Type: application/json" \
-      -d '{
-        "prompt": "Write a Python function that checks if a number is prime"
-      }'
-    ```
-  </Tab>
-
-  <Tab title="Python">
+  <Tab title="Python (OpenAI SDK)">
     ```python
-    import requests
+    from openai import OpenAI
 
-    response = requests.post(
-        "https://api.pathfinder.ai/v1/routes:decide",
-        headers={"Authorization": "Bearer sk_live_YOUR_API_KEY"},
-        json={"prompt": "Write a Python function that checks if a number is prime"}
+    # Just change the base URL - everything else stays the same!
+    client = OpenAI(
+        base_url="https://api.pathfinder.naivana.io/v1",
+        api_key="pk_live_YOUR_API_KEY"
     )
 
-    decision = response.json()
-    print(decision)
+    response = client.chat.completions.create(
+        model="auto",  # Let Pathfinder choose the best model
+        messages=[
+            {"role": "user", "content": "Write a Python function to check if a number is prime"}
+        ]
+    )
+
+    print(response.choices[0].message.content)
+    print(f"\nProvider: {response.pathfinder.provider}")
+    print(f"Model: {response.pathfinder.model}")
+    print(f"Cost: ${response.pathfinder.cost_usd:.6f}")
     ```
   </Tab>
 
-  <Tab title="Node.js">
+  <Tab title="Node.js (OpenAI SDK)">
     ```javascript
-    const axios = require('axios');
+    import OpenAI from 'openai';
 
-    const response = await axios.post(
-      'https://api.pathfinder.ai/v1/routes:decide',
-      { prompt: 'Write a Python function that checks if a number is prime' },
-      { headers: { Authorization: 'Bearer sk_live_YOUR_API_KEY' } }
-    );
+    // Just change the base URL - everything else stays the same!
+    const client = new OpenAI({
+      baseURL: 'https://api.pathfinder.naivana.io/v1',
+      apiKey: 'pk_live_YOUR_API_KEY'
+    });
 
-    console.log(response.data);
+    const response = await client.chat.completions.create({
+      model: 'auto',  // Let Pathfinder choose the best model
+      messages: [
+        { role: 'user', content: 'Write a Python function to check if a number is prime' }
+      ]
+    });
+
+    console.log(response.choices[0].message.content);
+    console.log(`\nProvider: ${response.pathfinder.provider}`);
+    console.log(`Model: ${response.pathfinder.model}`);
+    console.log(`Cost: $${response.pathfinder.cost_usd.toFixed(6)}`);
+    ```
+  </Tab>
+
+  <Tab title="cURL">
+    ```bash
+    curl -X POST https://api.pathfinder.naivana.io/v1/chat/completions \
+      -H "Content-Type: application/json" \
+      -H "X-API-Key: pk_live_YOUR_API_KEY" \
+      -d '{
+        "model": "auto",
+        "messages": [
+          {"role": "user", "content": "Write a Python function to check if a number is prime"}
+        ]
+      }'
     ```
   </Tab>
 
   <Tab title="Postman">
     1. Create a new POST request
-    2. URL: `https://api.pathfinder.ai/v1/routes:decide`
+    2. URL: `https://api.pathfinder.naivana.io/v1/chat/completions`
     3. Headers tab:
-       - Key: `Authorization`
-       - Value: `Bearer sk_live_YOUR_API_KEY`
+       - Key: `X-API-Key`
+       - Value: `pk_live_YOUR_API_KEY`
     4. Body tab (raw JSON):
        ```json
        {
-         "prompt": "Write a Python function that checks if a number is prime"
+         "model": "auto",
+         "messages": [
+           {"role": "user", "content": "Write a Python function to check if a number is prime"}
+         ]
        }
        ```
     5. Click **Send**
@@ -87,129 +112,107 @@ Choose your preferred method:
 
 ### Step 3: Read the Response
 
-You'll get back something like this:
+You'll get back a standard OpenAI response with an additional `pathfinder` metadata object:
 
 ```json
 {
-  "decision_id": "550e8400-e29b-41d4-a716-446655440000",
-  "selected_model": "gpt-4-turbo-preview",
-  "provider": "openai",
-  "confidence": 0.95,
-  "estimated_cost_usd": 0.015,
-  "fallback_models": ["gpt-4", "claude-3-opus-20240229"],
-  "reasoning": "GPT-4 Turbo selected for optimal cost/quality balance on coding task",
-  "timestamp": "2025-11-11T14:30:00Z",
-  "routing_method": "heuristic",
-  "routing_latency_ms": 1.8
+  "id": "chatcmpl-abc123",
+  "object": "chat.completion",
+  "created": 1704067200,
+  "model": "claude-sonnet-4-5",
+  "choices": [
+    {
+      "index": 0,
+      "message": {
+        "role": "assistant",
+        "content": "Here's a Python function to check if a number is prime:\n\n```python\ndef is_prime(n):\n    if n < 2:\n        return False\n    for i in range(2, int(n**0.5) + 1):\n        if n % i == 0:\n            return False\n    return True\n```"
+      },
+      "finish_reason": "stop"
+    }
+  ],
+  "usage": {
+    "prompt_tokens": 15,
+    "completion_tokens": 89,
+    "total_tokens": 104
+  },
+  "pathfinder": {
+    "provider": "anthropic",
+    "model": "claude-sonnet-4-5-20250929",
+    "cost_usd": 0.001778,
+    "routing_decision_id": "dec_abc123xyz",
+    "routing_latency_ms": 2.4,
+    "completion_latency_ms": 847,
+    "confidence": 0.92,
+    "fallback_used": false,
+    "key_source": "pathfinder"
+  }
 }
 ```
 
-**What each field means:**
+**What the `pathfinder` object tells you:**
 
 | Field | Meaning |
 |-------|---------|
-| `decision_id` | Unique ID for this decision (save for debugging) |
-| `selected_model` | The model Pathfinder recommends (e.g., `gpt-4-turbo-preview`) |
-| `provider` | Which company to call (e.g., `openai`, `anthropic`) |
-| `confidence` | How confident we are (0.0 = not sure, 1.0 = very sure) |
-| `estimated_cost_usd` | How much this will cost to run |
-| `fallback_models` | Backup models if primary fails |
-| `reasoning` | Why we picked this model |
-| `routing_latency_ms` | How long the decision took (should be less than 10ms) |
-
-### Step 4: Use the Decision
-
-Now you know which model to use! Send your prompt to that provider:
-
-<Tabs>
-  <Tab title="Using OpenAI (if selected_model starts with 'gpt')">
-    ```python
-    from openai import OpenAI
-
-    client = OpenAI(api_key="sk-...your-openai-key")
-
-    # Use the model from Pathfinder's decision
-    response = client.chat.completions.create(
-        model="gpt-4-turbo-preview",  # From Pathfinder decision
-        messages=[
-            {"role": "user", "content": "Write a Python function..."}
-        ]
-    )
-
-    print(response.choices[0].message.content)
-    ```
-  </Tab>
-
-  <Tab title="Using Anthropic (if selected_model starts with 'claude')">
-    ```python
-    from anthropic import Anthropic
-
-    client = Anthropic(api_key="sk-ant-...your-anthropic-key")
-
-    # Use the model from Pathfinder's decision
-    response = client.messages.create(
-        model="claude-3-opus-20240229",  # From Pathfinder decision
-        max_tokens=1024,
-        messages=[
-            {"role": "user", "content": "Write a Python function..."}
-        ]
-    )
-
-    print(response.content[0].text)
-    ```
-  </Tab>
-
-  <Tab title="Using Google (if selected_model starts with 'gemini')">
-    ```python
-    import google.generativeai as genai
-
-    genai.configure(api_key="AIz...your-google-key")
-
-    model = genai.GenerativeModel("gemini-2.5-pro")  # From Pathfinder decision
-
-    response = model.generate_content("Write a Python function...")
-    print(response.text)
-    ```
-  </Tab>
-</Tabs>
+| `provider` | Which AI provider served this request (anthropic, openai, google) |
+| `model` | The exact model used |
+| `cost_usd` | Actual cost in USD for this request |
+| `routing_decision_id` | Unique ID for tracking and debugging |
+| `routing_latency_ms` | Time spent making the routing decision |
+| `completion_latency_ms` | Time spent waiting for the LLM response |
+| `confidence` | Routing confidence (0.0 = uncertain, 1.0 = very confident) |
+| `key_source` | Whether Pathfinder used your keys ("own") or ours ("pathfinder") |
 
 ### That's It! 🎉
 
-You've successfully:
-1. ✅ Made a routing decision
-2. ✅ Received a recommendation
-3. ✅ Used it with the provider's API
+You've successfully made an API call! Pathfinder:
+1. ✅ Received your request
+2. ✅ Analyzed the prompt and selected the best model (Claude Sonnet 4.5)
+3. ✅ Returned the completion with cost tracking
+
+## What's `model: "auto"`?
+
+When you set `model: "auto"`, Pathfinder analyzes your prompt and automatically selects the best model based on:
+- **Prompt complexity** - Simple questions get fast, cheap models; complex tasks get powerful models
+- **Cost efficiency** - Balances quality with cost
+- **Latency requirements** - Optimizes for response time when needed
+
+You can also specify a specific model if you prefer:
+```python
+model="claude-sonnet-4-5"  # Always use Claude Sonnet 4.5
+model="gpt-5.1"            # Always use GPT-5.1
+model="gemini-2.5-flash"   # Always use Gemini Flash
+```
 
 ## Common Next Steps
 
 <CardGroup cols={2}>
   <Card
-    title="Add Authentication"
-    icon="lock"
-    href="/docs/api/getting-started/authentication"
+    title="Supported Models"
+    icon="list"
+    href="/pathfinder/api-reference/models-list"
   >
-    Set up secure API key management
+    See all available models and pricing
   </Card>
   <Card
     title="Error Handling"
     icon="exclamation"
-    href="/docs/api/guides/error-handling"
+    href="/pathfinder/guides/error-handling"
   >
     Handle API errors gracefully
   </Card>
   <Card
     title="Cost Optimization"
     icon="dollar-sign"
-    href="/docs/api/guides/cost-optimization"
+    href="/pathfinder/guides/cost-optimization"
   >
-    Save money with smart constraints
+    Control costs with routing policies
   </Card>
   <Card
-    title="Full API Reference"
-    icon="book"
-    href="/docs/api/endpoints/routing-decision"
+    title="Streaming Responses"
+    icon="bolt"
+    href="/pathfinder/guides/streaming"
   >
-    Learn all available options
+    Enable real-time streaming
   </Card>
 </CardGroup>
 
@@ -217,22 +220,25 @@ You've successfully:
 
 ### "401 Unauthorized"
 Your API key is invalid or missing. Check:
-- [ ] API key starts with `sk_live_`
-- [ ] It's in the `Authorization: Bearer` header
+- [ ] API key starts with `pk_live_` or `pk_test_`
+- [ ] It's in the `X-API-Key` header
 - [ ] There are no extra spaces or characters
 
-### "400 Bad Request"
-Your request is malformed. Check:
-- [ ] `prompt` field is not empty
-- [ ] `prompt` is a string (not an object)
-- [ ] You're using valid JSON
+### "400 Bad Request - Invalid model"
+Model not found. Check:
+- [ ] Model name is correct (e.g., `claude-sonnet-4-5`, not `claude-4.5-sonnet`)
+- [ ] Or use `auto` to let Pathfinder choose
+- [ ] See [Models List](/pathfinder/api-reference/models-list) for supported models
 
-### "503 Service Unavailable"
-All providers are temporarily down. This happens rarely. Try again in a few moments.
+### "429 Rate Limited"
+You've exceeded your rate limit. Check the `Retry-After` header for when to retry.
+
+### "502 Provider Error"
+The upstream provider (OpenAI, Anthropic, Google) returned an error. Check `pathfinder.fallback_used` - Pathfinder may have already retried with a fallback.
 
 ## Next: Learn More
 
-- [Full API Reference](/docs/api/endpoints/routing-decision)
-- [Understanding Routing Decisions](/docs/api/core-concepts/routing-decisions)
-- [Privacy & Security](/docs/api/core-concepts/privacy-first-design)
-- [Language-Specific Guides](/docs/api/guides/python-integration)
+- [Understanding Auto Routing](/pathfinder/core-concepts/auto-routing)
+- [Routing Policies](/pathfinder/core-concepts/routing-policies)
+- [Privacy & Security](/pathfinder/core-concepts/privacy-first-design)
+- [Python Integration Guide](/pathfinder/guides/python-integration)

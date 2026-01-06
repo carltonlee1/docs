@@ -1,0 +1,365 @@
+---
+title: "GET /api/v1/routing/analytics/cost-by-provider"
+description: "Get cost analytics and savings from multi-provider routing"
+---
+
+## Endpoint
+
+```
+GET https://api.pathfinder.naivana.io/api/v1/routing/analytics/cost-by-provider
+```
+
+## Description
+
+Retrieves detailed cost analytics aggregated by provider for a specified time range. This endpoint provides insights into spending patterns, cost savings from multi-provider routing, and per-provider efficiency metrics.
+
+**Key Metrics**:
+- Total cost per provider
+- Request volume and token usage
+- Average latency and cost per request
+- Estimated savings vs. single-provider usage
+
+## Request
+
+### Headers
+
+```http
+Authorization: Bearer <jwt_token>
+```
+
+### Authentication
+
+Requires JWT token from dashboard login. See the [Dashboard Authentication](/pathfinder/dashboard/authentication) guide for details.
+
+### Query Parameters
+
+| Parameter | Type | Default | Required | Description |
+|-----------|------|---------|----------|-------------|
+| `time_range` | string | `30d` | No | Time range for analytics: `7d`, `30d`, or `90d` |
+
+## Response
+
+### Success Response (200 OK)
+
+```json
+{
+  "providers": [
+    {
+      "provider": "anthropic",
+      "total_cost_usd": 125.50,
+      "total_requests": 45000,
+      "total_input_tokens": 15000000,
+      "total_output_tokens": 8000000,
+      "avg_latency_ms": 520.5,
+      "cost_per_request": 0.00279
+    },
+    {
+      "provider": "openai",
+      "total_cost_usd": 85.25,
+      "total_requests": 28000,
+      "total_input_tokens": 10000000,
+      "total_output_tokens": 5500000,
+      "avg_latency_ms": 420.3,
+      "cost_per_request": 0.00304
+    }
+  ],
+  "time_range": "30d",
+  "total_cost_usd": 210.75,
+  "estimated_single_provider_cost_usd": 280.50,
+  "savings_usd": 69.75,
+  "savings_percentage": 24.87
+}
+```
+
+### Response Fields
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `providers` | array | Per-provider cost and usage analytics |
+| `time_range` | string | Time range used for the analytics query |
+| `total_cost_usd` | number | Total cost across all providers in USD |
+| `estimated_single_provider_cost_usd` | number | Estimated cost if using only the most expensive provider |
+| `savings_usd` | number | Cost savings from multi-provider routing in USD |
+| `savings_percentage` | number | Percentage savings compared to single-provider usage |
+
+### Provider Analytics Fields
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `provider` | string | Provider name |
+| `total_cost_usd` | number | Total cost for this provider in USD |
+| `total_requests` | integer | Total number of requests routed to this provider |
+| `total_input_tokens` | integer | Total input tokens processed |
+| `total_output_tokens` | integer | Total output tokens generated |
+| `avg_latency_ms` | number | Average request latency in milliseconds |
+| `cost_per_request` | number | Average cost per request in USD |
+
+## Error Responses
+
+### 401 Unauthorized
+
+```json
+{
+  "detail": "Missing or invalid JWT token"
+}
+```
+
+### 422 Unprocessable Entity - Invalid Time Range
+
+```json
+{
+  "detail": "Invalid time_range. Must be one of: 7d, 30d, 90d"
+}
+```
+
+### 500 Internal Server Error
+
+```json
+{
+  "detail": "Internal server error"
+}
+```
+
+## Examples
+
+### cURL - Default 30-day Range
+
+```bash
+curl "https://api.pathfinder.naivana.io/api/v1/routing/analytics/cost-by-provider?time_range=30d" \
+  -H "Authorization: Bearer $JWT_TOKEN"
+```
+
+### cURL - 7-day Range
+
+```bash
+curl "https://api.pathfinder.naivana.io/api/v1/routing/analytics/cost-by-provider?time_range=7d" \
+  -H "Authorization: Bearer $JWT_TOKEN"
+```
+
+### Python - Analyze Costs
+
+```python
+import requests
+
+# Login to get JWT token
+login_resp = requests.post(
+    "https://api.pathfinder.naivana.io/api/v1/auth/login",
+    json={"email": "user@example.com", "password": "password"}
+)
+token = login_resp.json()["access_token"]
+
+# Get cost analytics for the last 30 days
+response = requests.get(
+    "https://api.pathfinder.naivana.io/api/v1/routing/analytics/cost-by-provider",
+    headers={"Authorization": f"Bearer {token}"},
+    params={"time_range": "30d"}
+)
+
+analytics = response.json()
+
+# Display cost summary
+print(f"Total Cost: ${analytics['total_cost_usd']:.2f}")
+print(f"Estimated Single-Provider Cost: ${analytics['estimated_single_provider_cost_usd']:.2f}")
+print(f"Savings: ${analytics['savings_usd']:.2f} ({analytics['savings_percentage']:.1f}%)")
+
+print("\nPer-Provider Breakdown:")
+for provider in analytics['providers']:
+    print(f"\n{provider['provider'].upper()}:")
+    print(f"  Total Cost: ${provider['total_cost_usd']:.2f}")
+    print(f"  Requests: {provider['total_requests']:,}")
+    print(f"  Cost/Request: ${provider['cost_per_request']:.5f}")
+    print(f"  Avg Latency: {provider['avg_latency_ms']:.1f}ms")
+    print(f"  Input Tokens: {provider['total_input_tokens']:,}")
+    print(f"  Output Tokens: {provider['total_output_tokens']:,}")
+```
+
+### Python - Compare Time Ranges
+
+```python
+import requests
+
+def get_cost_analytics(token, time_range):
+    response = requests.get(
+        "https://api.pathfinder.naivana.io/api/v1/routing/analytics/cost-by-provider",
+        headers={"Authorization": f"Bearer {token}"},
+        params={"time_range": time_range}
+    )
+    return response.json()
+
+# Get JWT token (omitted for brevity)
+token = "your_jwt_token"
+
+# Compare different time ranges
+for time_range in ["7d", "30d", "90d"]:
+    analytics = get_cost_analytics(token, time_range)
+    print(f"\n{time_range} Cost: ${analytics['total_cost_usd']:.2f}")
+    print(f"  Savings: ${analytics['savings_usd']:.2f} ({analytics['savings_percentage']:.1f}%)")
+    print(f"  Total Requests: {sum(p['total_requests'] for p in analytics['providers']):,}")
+```
+
+### Python - Find Most Cost-Efficient Provider
+
+```python
+import requests
+
+# Get JWT token (omitted for brevity)
+token = "your_jwt_token"
+
+response = requests.get(
+    "https://api.pathfinder.naivana.io/api/v1/routing/analytics/cost-by-provider",
+    headers={"Authorization": f"Bearer {token}"},
+    params={"time_range": "30d"}
+)
+
+analytics = response.json()
+
+# Sort providers by cost per request
+sorted_providers = sorted(
+    analytics['providers'],
+    key=lambda x: x['cost_per_request']
+)
+
+print("Providers by Cost Efficiency:")
+for i, provider in enumerate(sorted_providers, 1):
+    print(f"{i}. {provider['provider']}: ${provider['cost_per_request']:.5f}/request")
+```
+
+### Node.js
+
+```javascript
+// Login to get JWT token
+const loginResp = await fetch('https://api.pathfinder.naivana.io/api/v1/auth/login', {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({
+    email: 'user@example.com',
+    password: 'password'
+  })
+});
+
+const { access_token } = await loginResp.json();
+
+// Get cost analytics
+const response = await fetch(
+  'https://api.pathfinder.naivana.io/api/v1/routing/analytics/cost-by-provider?time_range=30d',
+  {
+    headers: {
+      'Authorization': `Bearer ${access_token}`
+    }
+  }
+);
+
+const analytics = await response.json();
+
+// Display cost summary
+console.log(`Total Cost: $${analytics.total_cost_usd.toFixed(2)}`);
+console.log(`Savings: $${analytics.savings_usd.toFixed(2)} (${analytics.savings_percentage.toFixed(1)}%)`);
+
+console.log('\nPer-Provider Breakdown:');
+analytics.providers.forEach(provider => {
+  console.log(`\n${provider.provider.toUpperCase()}:`);
+  console.log(`  Total Cost: $${provider.total_cost_usd.toFixed(2)}`);
+  console.log(`  Requests: ${provider.total_requests.toLocaleString()}`);
+  console.log(`  Cost/Request: $${provider.cost_per_request.toFixed(5)}`);
+  console.log(`  Avg Latency: ${provider.avg_latency_ms.toFixed(1)}ms`);
+});
+```
+
+### Node.js - Export to CSV
+
+```javascript
+// Get cost analytics (authentication steps omitted)
+const response = await fetch(
+  'https://api.pathfinder.naivana.io/api/v1/routing/analytics/cost-by-provider?time_range=30d',
+  { headers: { 'Authorization': `Bearer ${access_token}` } }
+);
+
+const analytics = await response.json();
+
+// Generate CSV
+const csvHeader = 'Provider,Total Cost (USD),Requests,Cost/Request,Avg Latency (ms),Input Tokens,Output Tokens\n';
+const csvRows = analytics.providers.map(p =>
+  `${p.provider},${p.total_cost_usd},${p.total_requests},${p.cost_per_request},${p.avg_latency_ms},${p.total_input_tokens},${p.total_output_tokens}`
+).join('\n');
+
+const csv = csvHeader + csvRows;
+console.log(csv);
+
+// Optionally write to file with Node.js fs module
+// fs.writeFileSync('cost-analytics.csv', csv);
+```
+
+## Use Cases
+
+### ROI Analysis
+
+Calculate return on investment from using Pathfinder:
+
+```python
+def calculate_roi(token, time_range="30d"):
+    response = requests.get(
+        "https://api.pathfinder.naivana.io/api/v1/routing/analytics/cost-by-provider",
+        headers={"Authorization": f"Bearer {token}"},
+        params={"time_range": time_range}
+    )
+
+    analytics = response.json()
+
+    # Assuming Pathfinder costs $X/month
+    pathfinder_monthly_cost = 50.00  # Example cost
+
+    # Annualize savings based on time range
+    days = int(time_range.replace('d', ''))
+    annualized_savings = (analytics['savings_usd'] / days) * 365
+
+    annual_roi = ((annualized_savings - (pathfinder_monthly_cost * 12)) /
+                  (pathfinder_monthly_cost * 12)) * 100
+
+    print(f"Annual Savings: ${annualized_savings:.2f}")
+    print(f"Annual Pathfinder Cost: ${pathfinder_monthly_cost * 12:.2f}")
+    print(f"ROI: {annual_roi:.1f}%")
+
+    return annual_roi
+```
+
+### Budget Alerts
+
+Monitor spending and set alerts:
+
+```python
+def check_budget_threshold(token, budget_limit_usd, time_range="30d"):
+    response = requests.get(
+        "https://api.pathfinder.naivana.io/api/v1/routing/analytics/cost-by-provider",
+        headers={"Authorization": f"Bearer {token}"},
+        params={"time_range": time_range}
+    )
+
+    analytics = response.json()
+    total_cost = analytics['total_cost_usd']
+
+    if total_cost > budget_limit_usd:
+        print(f"WARNING: Budget exceeded!")
+        print(f"Spent: ${total_cost:.2f} / Budget: ${budget_limit_usd:.2f}")
+        print(f"Overage: ${total_cost - budget_limit_usd:.2f}")
+
+        # Identify highest cost provider
+        highest_cost_provider = max(analytics['providers'],
+                                    key=lambda x: x['total_cost_usd'])
+        print(f"Highest cost provider: {highest_cost_provider['provider']} "
+              f"(${highest_cost_provider['total_cost_usd']:.2f})")
+    else:
+        remaining = budget_limit_usd - total_cost
+        print(f"Budget OK: ${total_cost:.2f} / ${budget_limit_usd:.2f}")
+        print(f"Remaining: ${remaining:.2f}")
+
+# Example usage
+check_budget_threshold(token, budget_limit_usd=200.00, time_range="30d")
+```
+
+## Next Steps
+
+- [Get Routing Configuration](/pathfinder/endpoints/get-routing-config)
+- [Update Routing Configuration](/pathfinder/endpoints/put-routing-config)
+- [View Provider Health](/pathfinder/endpoints/provider-health)
+- [Cost Optimization Guide](/pathfinder/guides/cost-optimization)
+- [Dashboard Analytics](/pathfinder/dashboard/analytics)

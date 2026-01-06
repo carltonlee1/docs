@@ -11,6 +11,13 @@ Pathfinder provides a simple REST API for intelligent LLM routing.
 
 <CardGroup cols={2}>
   <Card
+    title="POST /v1/chat/completions"
+    icon="comments"
+    href="/docs/api/endpoints/chat-completions"
+  >
+    OpenAI-compatible chat completions with intelligent routing
+  </Card>
+  <Card
     title="POST /routes:decide"
     icon="route"
     href="/docs/api/endpoints/routing-decision"
@@ -24,7 +31,57 @@ Pathfinder provides a simple REST API for intelligent LLM routing.
   >
     Retrieve a previous routing decision
   </Card>
+  <Card
+    title="POST /routes:feedback"
+    icon="message"
+    href="/docs/api/endpoints/feedback"
+  >
+    Provide feedback on routing decisions
+  </Card>
 </CardGroup>
+
+### Routing Configuration Endpoints
+
+<CardGroup cols={2}>
+  <Card
+    title="GET /api/v1/routing/config"
+    icon="gear"
+    href="/pathfinder/endpoints/get-routing-config"
+  >
+    Get your current routing configuration
+  </Card>
+  <Card
+    title="PUT /api/v1/routing/config"
+    icon="pen-to-square"
+    href="/pathfinder/endpoints/put-routing-config"
+  >
+    Update routing strategy and provider settings
+  </Card>
+  <Card
+    title="GET /api/v1/routing/providers/health"
+    icon="heart-pulse"
+    href="/pathfinder/endpoints/provider-health"
+  >
+    View provider health and performance metrics
+  </Card>
+  <Card
+    title="GET /api/v1/routing/analytics/cost-by-provider"
+    icon="dollar-sign"
+    href="/pathfinder/endpoints/cost-analytics"
+  >
+    Get cost analytics and savings by provider
+  </Card>
+</CardGroup>
+
+### Analytics Endpoints
+
+<Card
+  title="Analytics API"
+  icon="chart-line"
+  href="/docs/api/endpoints/analytics"
+>
+  Spending analytics, usage metrics, and cost tracking endpoints
+</Card>
 
 ### Base URL
 
@@ -62,6 +119,8 @@ X-Tenant-ID: your-tenant-id (optional, extracted from token)
 
 ## Next Steps
 
+- [Chat Completions Endpoint](/docs/api/endpoints/chat-completions)
 - [Routing Decision Endpoint](/docs/api/endpoints/routing-decision)
 - [Get Decision Endpoint](/docs/api/endpoints/get-decision)
+- [Analytics Endpoints](/docs/api/endpoints/analytics)
 - [Error Handling](/docs/api/guides/error-handling)

@@ -1,0 +1,358 @@
+---
+title: "Auto Routing"
+description: "Automatic model selection based on prompt complexity, cost, and quality requirements"
+---
+
+## Overview
+
+Auto routing lets Pathfinder automatically select the optimal model for each request based on prompt complexity, cost constraints, and quality requirements.
+
+When you set `model: "auto"`, Pathfinder analyzes your prompt and selects the best model considering:
+- Prompt complexity and task type
+- Cost efficiency
+- Quality requirements
+- Latency needs
+- Provider availability
+
+## Basic Usage
+
+<CodeGroup>
+
+```python Python
+from openai import OpenAI
+
+client = OpenAI(
+    api_key="pk_live_your-key-here",
+    base_url="https://api.pathfinder.naivana.io/v1"
+)
+
+response = client.chat.completions.create(
+    model="auto",
+    messages=[{"role": "user", "content": "Hello, how are you?"}]
+)
+
+# Check which model was selected
+raw = response.model_dump()
+print(f"Provider: {raw['pathfinder']['provider']}")
+print(f"Model: {raw['model']}")
+print(f"Cost: ${raw['pathfinder']['cost_usd']:.6f}")
+```
+
+```javascript JavaScript
+import OpenAI from 'openai';
+
+const client = new OpenAI({
+  apiKey: 'pk_live_your-key-here',
+  baseURL: 'https://api.pathfinder.naivana.io/v1'
+});
+
+const response = await client.chat.completions.create({
+  model: 'auto',
+  messages: [{ role: 'user', content: 'Hello, how are you?' }]
+});
+
+// Access pathfinder metadata
+console.log(`Provider: ${response.pathfinder?.provider}`);
+console.log(`Cost: $${response.pathfinder?.cost_usd}`);
+```
+
+```bash cURL
+curl -X POST https://api.pathfinder.naivana.io/v1/chat/completions \
+  -H "Authorization: Bearer pk_live_your-key-here" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "model": "auto",
+    "messages": [{"role": "user", "content": "Hello, how are you?"}]
+  }'
+```
+
+</CodeGroup>
+
+## How Model Selection Works
+
+### Simple Prompts
+
+For simple prompts like greetings or basic questions, Pathfinder selects cost-effective models:
+
+```json
+{
+  "model": "auto",
+  "messages": [{"role": "user", "content": "Hi"}]
+}
+```
+
+**Expected behavior:**
+- Routes to cheapest capable model (e.g., `gemini-2.5-flash`)
+- Cost typically under $0.001
+
+### Complex Prompts
+
+For complex reasoning or analysis, Pathfinder selects higher-capability models:
+
+```json
+{
+  "model": "auto",
+  "messages": [
+    {"role": "system", "content": "You are a helpful assistant."},
+    {"role": "user", "content": "Explain the implications of Godel's incompleteness theorems on the foundations of mathematics."}
+  ]
+}
+```
+
+**Expected behavior:**
+- Routes to capable reasoning model
+- May select `claude-sonnet-4-5` or `gpt-5.1`
+
+### Code Generation
+
+```json
+{
+  "model": "auto",
+  "messages": [
+    {"role": "user", "content": "Write a Python function that implements binary search. Include type hints and docstring."}
+  ]
+}
+```
+
+**Expected behavior:**
+- Routes to model with strong coding capabilities
+- Returns well-structured code with documentation
+
+### Creative Writing
+
+```json
+{
+  "model": "auto",
+  "messages": [{"role": "user", "content": "Write a haiku about programming"}],
+  "temperature": 0.9
+}
+```
+
+**Expected behavior:**
+- Respects temperature setting
+- Selects model appropriate for creative tasks
+
+## Response Metadata
+
+Auto routing responses include detailed metadata:
+
+```json
+{
+  "id": "chatcmpl-abc123",
+  "object": "chat.completion",
+  "model": "claude-haiku-4-5",
+  "choices": [
+    {
+      "index": 0,
+      "message": {
+        "role": "assistant",
+        "content": "Hello! I'm doing well, thank you for asking."
+      },
+      "finish_reason": "stop"
+    }
+  ],
+  "usage": {
+    "prompt_tokens": 12,
+    "completion_tokens": 15,
+    "total_tokens": 27
+  },
+  "pathfinder": {
+    "provider": "anthropic",
+    "cost_usd": 0.000042,
+    "routing_decision_id": "rd_abc123",
+    "routing_latency_ms": 5,
+    "completion_latency_ms": 320,
+    "confidence": 0.95
+  }
+}
+```
+
+### Metadata Fields
+
+| Field | Description |
+|-------|-------------|
+| `provider` | Which provider served the request (`anthropic`, `openai`, `google`, `azure`) |
+| `cost_usd` | Actual cost of the request |
+| `routing_decision_id` | Unique ID for debugging/tracking |
+| `routing_latency_ms` | Time to make routing decision |
+| `completion_latency_ms` | Time for model completion |
+| `confidence` | Routing confidence score (0-1) |
+
+## Combining with Routing Policies
+
+Auto routing works with routing policies for fine-grained control:
+
+### Cost-Optimized
+
+```json
+{
+  "model": "auto",
+  "messages": [{"role": "user", "content": "What time is it?"}],
+  "routing": {"policy": "cost_optimized"}
+}
+```
+
+Ensures the cheapest capable model is selected.
+
+### Quality-First
+
+```json
+{
+  "model": "auto",
+  "messages": [{"role": "user", "content": "Analyze this complex legal document"}],
+  "routing": {"policy": "quality_first"}
+}
+```
+
+Prioritizes model capability over cost.
+
+### Latency-First
+
+```json
+{
+  "model": "auto",
+  "messages": [{"role": "user", "content": "Quick: capital of France?"}],
+  "routing": {"policy": "latency_first"}
+}
+```
+
+Selects the fastest responding model.
+
+### With Cost Constraints
+
+```json
+{
+  "model": "auto",
+  "messages": [{"role": "user", "content": "Hello"}],
+  "routing": {"max_cost_usd": 0.005}
+}
+```
+
+Guarantees the request stays under the cost limit.
+
+See [Routing Policies](/pathfinder/core-concepts/routing-policies) for complete policy documentation.
+
+## Supported Models
+
+Auto routing can select from these models:
+
+| Model | Provider | Input ($/MTok) | Output ($/MTok) | Best For |
+|-------|----------|----------------|-----------------|----------|
+| `gemini-2.5-flash` | Google | $0.30 | $2.50 | Simple tasks, lowest cost |
+| `gemini-3-flash` | Google | $0.50 | $3.00 | Fast responses |
+| `claude-haiku-4-5` | Anthropic | $1.00 | $5.00 | Balanced speed/quality |
+| `gemini-2.5-pro` | Google | $1.25 | $10.00 | Complex analysis |
+| `gpt-5.1` | OpenAI | $1.50 | $12.00 | General purpose |
+| `gpt-5.2` | OpenAI | $1.75 | $14.00 | Advanced reasoning |
+| `gemini-3-pro` | Google | $2.00 | $12.00 | Advanced tasks |
+| `claude-sonnet-4-5` | Anthropic | $3.00 | $15.00 | High quality |
+| `claude-opus-4-5` | Anthropic | $5.00 | $25.00 | Highest quality |
+
+## When to Use Auto vs. Specific Models
+
+### Use `auto` when:
+- You want cost optimization without manual model selection
+- Your prompts vary in complexity
+- You trust Pathfinder's routing decisions
+- You want automatic failover
+
+### Use specific models when:
+- You need consistent behavior for testing
+- You have specific provider requirements
+- You're benchmarking specific models
+- You need deterministic routing
+
+## Multi-Turn with Auto Routing
+
+Auto routing works seamlessly with conversations:
+
+```python
+messages = [
+    {"role": "user", "content": "My favorite color is blue."},
+    {"role": "assistant", "content": "Blue is a great color!"},
+    {"role": "user", "content": "What is my favorite color?"}
+]
+
+response = client.chat.completions.create(
+    model="auto",
+    messages=messages
+)
+# Model selection considers full conversation context
+```
+
+## Capability Requirements
+
+Request specific capabilities when needed:
+
+```json
+{
+  "model": "auto",
+  "messages": [{"role": "user", "content": "Hello"}],
+  "routing": {
+    "require_capabilities": ["streaming", "function_calling"]
+  }
+}
+```
+
+Only models supporting all required capabilities will be selected.
+
+**Available capabilities:**
+- `streaming` - Real-time streaming responses
+- `function_calling` - Tool/function calling support
+- `vision` - Image understanding
+- `json_mode` - Structured JSON output
+- `extended_thinking` - Deep reasoning
+
+## Provider Preferences with Auto
+
+Combine auto routing with provider preferences:
+
+```json
+{
+  "model": "auto",
+  "messages": [{"role": "user", "content": "Hello"}],
+  "routing": {
+    "preferred_providers": ["anthropic"],
+    "exclude_providers": ["openai"]
+  }
+}
+```
+
+See [Routing Policies](/pathfinder/core-concepts/routing-policies) for details.
+
+## Debugging Auto Routing
+
+### Check which model was selected
+
+```python
+response = client.chat.completions.create(
+    model="auto",
+    messages=[{"role": "user", "content": "Hello"}]
+)
+
+# Standard field
+print(f"Model: {response.model}")
+
+# Pathfinder metadata
+raw = response.model_dump()
+print(f"Provider: {raw['pathfinder']['provider']}")
+print(f"Decision ID: {raw['pathfinder']['routing_decision_id']}")
+```
+
+### Track routing decisions
+
+Use the `routing_decision_id` to investigate routing behavior:
+
+```bash
+# In your logs, look for the decision ID
+curl "https://api.pathfinder.naivana.io/api/v1/routing/decisions/rd_abc123" \
+  -H "Authorization: Bearer pk_live_your-key-here"
+```
+
+## Best Practices
+
+1. **Start with `auto`** - Let Pathfinder optimize for you
+2. **Add constraints as needed** - Use `max_cost_usd` for budget control
+3. **Monitor costs** - Check `pathfinder.cost_usd` in responses
+4. **Use policies for specific needs** - `cost_optimized` for high-volume, `quality_first` for critical tasks
+5. **Track decision IDs** - Log `routing_decision_id` for debugging
